@@ -3,45 +3,55 @@ package com.originspecs.specextractor.config;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
+import java.security.SecureRandom;
 
 @Slf4j
 public record Config(
         Path inputFile,
-        Path outputFile,
-        int requiredCells
+        Path outputFile
 ) {
+    private static final String OUTPUT_DIR = "src/main/resources/local-data/output";
+    private static final String ALPHANUMERIC = "abcdefghijklmnopqrstuvwxyz0123456789";
+    private static final int SUFFIX_LENGTH = 10;
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     public static Config fromArgs(String[] args) {
-        if (args.length != 3) {
-            throw new IllegalArgumentException("Exactly 3 arguments required: <inputFile> <outputFile> <requiredCells>");
+        if (args.length != 1) {
+            throw new IllegalArgumentException("Exactly 1 argument required: <inputFile.xls>");
         }
 
-        var inputFile = Path.of(args[0]);
-        var outputFile = Path.of(args[1]);
-        var requiredCells = parseRequiredCells(args[2]);
+        Path inputFile = Path.of(args[0]);
+        Path outputFile = deriveOutputPath(inputFile);
 
-        return new Config(inputFile, outputFile, requiredCells);
+        return new Config(inputFile, outputFile);
     }
 
-    private static int parseRequiredCells(String arg) {
-        try {
-            int cells = Integer.parseInt(arg);
-            if (cells <= 0) {
-                throw new IllegalArgumentException("Required cells must be positive: " + cells);
-            }
-            return cells;
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Required cells must be an integer: " + arg);
+    /**
+     * Derives the output JSON path from the input filename.
+     * Strips the file extension, appends a 10-character random alphanumeric suffix,
+     * and places the result in the fixed output directory.
+     * e.g. {@code pre_processed_file.xls} → {@code src/main/resources/local-data/output/pre_processed_file_a3k7xq29nz.json}
+     */
+    static Path deriveOutputPath(Path inputFile) {
+        String inputName = inputFile.getFileName().toString();
+        int dotIndex = inputName.lastIndexOf('.');
+        String baseName = dotIndex > 0 ? inputName.substring(0, dotIndex) : inputName;
+        String suffix = randomAlphanumeric(SUFFIX_LENGTH);
+        String outputName = baseName + "_" + suffix + ".json";
+        return Path.of(OUTPUT_DIR, outputName);
+    }
+
+    private static String randomAlphanumeric(int length) {
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(ALPHANUMERIC.charAt(RANDOM.nextInt(ALPHANUMERIC.length())));
         }
+        return sb.toString();
     }
 
     public void validate() {
         if (!inputFile.toFile().exists()) {
             throw new IllegalArgumentException("Input file does not exist: " + inputFile.toAbsolutePath());
-        }
-
-        var parentDir = outputFile.getParent();
-        if (parentDir != null && !parentDir.toFile().exists()) {
-            log.info("Output directory will be created: {}", parentDir.toAbsolutePath());
         }
     }
 }

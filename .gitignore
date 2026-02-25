@@ -15,6 +15,9 @@ pom.xml.next
 dependency-reduced-pom.xml
 buildNumber.properties
 .mvn/timing.properties
+src/main/resources/local-data/input/
+src/main/resources/local-data/output/
+!src/main/resources/local-data/output/.gitkeep
 
 .gradle/
 build/

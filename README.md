@@ -1,66 +1,99 @@
 # Spec Extractor
 
-A lightweight Java CLI tool that transforms unstructured Excel (.xls) data into structured JSON records. 
-Designed for converting legacy spreadsheet data into JSON format for database seeding, API integration,
-or data migration purposes.
+A lightweight Java CLI tool that transforms pre-processed Excel (.xls) files into structured JSON.
+Designed to operate as the second stage of a two-step pipeline — it consumes the output of
+[DataPrep](../DataPrep) and produces a JSON array of spec records, one object per data row.
 
 ## Technology Stack
 
-- Java 21 - Modern Java with records, sealed interfaces, and pattern matching
-- Apache POI 5.4.0 - Excel file parsing and data extraction
-- Jackson 2.17.0 - JSON serialization with pretty printing
-- Lombok - Reduced boilerplate code
-- SLF4J & Logback - Configurable logging with multiple log levels
-- Maven - Build automation and dependency management
+- Java 21 — Modern Java with records and pattern matching
+- Apache POI 5.5.1 — Excel file parsing
+- Jackson 2.21.0 — JSON serialisation with pretty printing
+- Lombok — Reduced boilerplate
+- SLF4J & Logback — Configurable logging
+- Maven — Build automation and dependency management
 
-### Dependencies
+## Pipeline overview
 
-* Describe any prerequisites, libraries, OS version, etc., needed before installing program.
-* ex. Windows 10
+```
+DataPrep (.xls → cleaned .xls)  →  spec-extractor (cleaned .xls → .json)
+```
 
-### Building from source
+DataPrep resolves multi-row headers, filters sparse columns, expands merged cells, and fills down
+group identifiers. Spec Extractor reads that cleaned output and maps each data row to a JSON object
+whose keys are the column header names.
 
-git clone https://github.com/DylanBrennan92/spec-extractor.git
+## Building from source
+
+```bash
+git clone https://github.com/Signal-Shift/spec-extractor.git
 cd spec-extractor
 mvn clean package
+```
+
+## Usage
+
+```bash
+java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar <inputFile.xls>
+```
 
 ### CLI Arguments
 
-| Argument | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `recordType` | Yes | Record type to extract: `EMPLOYEE` or `VEHICLE` | `VEHICLE`, `EMPLOYEE` |
-| `inputFile.xls` | Yes | Path to the Excel (.xls) file to process | `nissan.xls`, `staff.xls` |
-| `outputFile.json` | Yes | Path where the JSON output should be saved | `output-nissan.json`, `employees.json` |
-| `requiredCells` | Yes | Minimum number of filled cells for a row to be kept | `20`, `7` |
-| `columnThreshold` | No | Minimum fill ratio (0.0–1.0) to keep a column; default `0.1` (10%) | `0.01`, `0.05` |
+| Argument        | Required | Description                                           | Example                                                        |
+|-----------------|----------|-------------------------------------------------------|----------------------------------------------------------------|
+| `inputFile.xls` | Yes      | Path to the pre-processed .xls file (DataPrep output) | `src/main/resources/local-data/input/pre_processed_file.xls`  |
 
-**Usage:**  
-`java -jar spec-extractor.jar <recordType> <inputFile.xls> <outputFile.json> <requiredCells> [columnThreshold]`
+The output file is generated automatically — the input filename has its extension replaced with
+`.json`, a 10-character random alphanumeric suffix appended, and is written to
+`src/main/resources/local-data/output/`.
+
+
 
 ## Example usage
 
 ```bash
-# Vehicle specs (e.g. Nissan spreadsheet) — 20 required cells, 1% column threshold
-java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar VEHICLE src/main/resources/nissan.xls output-nissan.json 20 0.01
-
-# Employee data — 7 required cells, default 10% column threshold
-java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar EMPLOYEE src/main/resources/staff.xls output.json 7
-
-# With DEBUG logging
-java -DLOG_LEVEL=DEBUG -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar VEHICLE src/main/resources/nissan.xls output-nissan.json 20 0.01
+java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
+  src/main/resources/local-data/input/5.1.Gzyouyou_WLTC_output.xls
 ```
+# With DEBUG logging
+```bash
+java -DLOG_LEVEL=DEBUG \
+  -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
+  src/main/resources/local-data/input/5.1.Gzyouyou_WLTC_output.xls
+```
+
+## Output format
+
+Each row in the input spreadsheet becomes a JSON object. Keys are taken directly from the header
+row of the pre-processed file, so the output structure reflects whatever columns DataPrep retained.
+
+```json
+[
+  {
+    "Car Name": "Nissan",
+    "Common Name": "Note",
+    "Model Type": "6AA-E13",
+    "Engine Displacement (L)": "1.198",
+    "Vehicle Weight (kg)": "1190",
+    ...
+  },
+  ...
+]
+```
+
+Multi-sheet workbooks are supported — all sheets are flattened into a single JSON array.
 
 ## Logging options
 
 Set the `LOG_LEVEL` system property to control verbosity:
 
 ```bash
-# INFO (default — progress and results)
-java -jar target/spec-extractor-*.jar VEHICLE input.xls output.json 20
+# INFO (default — progress and record counts)
+java -jar target/spec-extractor-*.jar input.xls
 
-# DEBUG (detailed processing)
-java -DLOG_LEVEL=DEBUG -jar target/spec-extractor-*.jar VEHICLE input.xls output.json 20 0.01
+# DEBUG (per-sheet detail)
+java -DLOG_LEVEL=DEBUG -jar target/spec-extractor-*.jar input.xls
 
 # TRACE (maximum verbosity for troubleshooting)
-java -DLOG_LEVEL=TRACE -jar target/spec-extractor-*.jar VEHICLE input.xls output.json 20 0.01
+java -DLOG_LEVEL=TRACE -jar target/spec-extractor-*.jar input.xls
 ```
