@@ -3,7 +3,7 @@ package com.originspecs.specextractor.config;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class CliParser {
+public final class CliParser {
 
     private static final String USAGE = """
             Usage: java -jar spec-extractor.jar <inputFile.xls>
@@ -11,8 +11,14 @@ public class CliParser {
             Example: java -jar target/spec-extractor.jar src/main/resources/local-data/input/pre_processed_file.xls
             """;
 
+    private CliParser() {}
+
     /**
-     * Parses CLI arguments into a validated Config, or logs an error, prints usage and exits the process.
+     * Parses CLI arguments into a validated Config, or throws {@link CliException} after
+     * logging the error and usage message. The caller is responsible for calling
+     * {@code System.exit} if appropriate.
+     *
+     * @throws CliException if arguments are invalid or the input file does not exist
      */
     public static Config parseOrExit(String[] args) {
         try {
@@ -22,8 +28,7 @@ public class CliParser {
         } catch (IllegalArgumentException e) {
             log.error("Invalid arguments: {}", e.getMessage());
             log.error(USAGE);
-            System.exit(1);
-            return null;
+            throw new CliException(e.getMessage());
         }
     }
 }

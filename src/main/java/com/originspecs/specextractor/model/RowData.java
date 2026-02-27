@@ -1,18 +1,17 @@
 package com.originspecs.specextractor.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
 import java.util.List;
 
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-public class RowData {
+/**
+ * Immutable value object representing a single row of cell values.
+ * The cell list is defensively copied on construction so no caller
+ * can mutate the row's contents after it is created.
+ */
+public record RowData(List<String> cellValues) {
 
-    private List<String> cellValues = new ArrayList<>();
+    public RowData(List<String> cellValues) {
+        this.cellValues = List.copyOf(cellValues);
+    }
 
     public String getCell(int index) {
         return index < cellValues.size() ? cellValues.get(index) : "";

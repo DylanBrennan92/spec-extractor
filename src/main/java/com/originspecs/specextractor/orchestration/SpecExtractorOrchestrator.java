@@ -2,14 +2,15 @@ package com.originspecs.specextractor.orchestration;
 
 import com.originspecs.specextractor.config.Config;
 import com.originspecs.specextractor.model.SheetData;
+import com.originspecs.specextractor.model.SpecRecord;
 import com.originspecs.specextractor.processor.SpecProcessor;
 import com.originspecs.specextractor.reader.WorkBookReader;
 import com.originspecs.specextractor.writer.JsonWriter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Orchestrates the complete spec extraction pipeline: read → process → write.
@@ -51,23 +52,23 @@ public class SpecExtractorOrchestrator {
         log.info("Input: {} | Output: {}", config.inputFile(), config.outputFile());
 
         List<SheetData> sheets = read(config.inputFile());
-        List<Map<String, String>> records = process(sheets);
+        List<SpecRecord> records = process(sheets);
         write(records, config.outputFile());
 
         log.info("Pipeline completed successfully");
     }
 
-    private List<SheetData> read(java.nio.file.Path inputFile) throws IOException {
+    private List<SheetData> read(Path inputFile) throws IOException {
         log.debug("Reading workbook");
         return reader.read(inputFile);
     }
 
-    private List<Map<String, String>> process(List<SheetData> sheets) {
+    private List<SpecRecord> process(List<SheetData> sheets) {
         log.debug("Processing sheets");
         return processor.process(sheets);
     }
 
-    private void write(List<Map<String, String>> records, java.nio.file.Path outputFile) throws IOException {
+    private void write(List<SpecRecord> records, Path outputFile) throws IOException {
         log.debug("Writing JSON");
         writer.write(records, outputFile);
     }

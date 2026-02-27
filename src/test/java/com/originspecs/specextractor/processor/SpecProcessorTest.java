@@ -2,11 +2,11 @@ package com.originspecs.specextractor.processor;
 
 import com.originspecs.specextractor.model.RowData;
 import com.originspecs.specextractor.model.SheetData;
+import com.originspecs.specextractor.model.SpecRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,14 +29,14 @@ class SpecProcessorTest {
                 )
         );
 
-        List<Map<String, String>> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet));
 
         assertThat(records).hasSize(2);
-        assertThat(records.get(0))
+        assertThat(records.get(0).fields())
                 .containsEntry("Car Name", "Nissan")
                 .containsEntry("Common Name", "Note")
                 .containsEntry("Model Number", "6AA-E13");
-        assertThat(records.get(1))
+        assertThat(records.get(1).fields())
                 .containsEntry("Car Name", "Toyota")
                 .containsEntry("Common Name", "Aqua")
                 .containsEntry("Model Number", "5BA-MXPK11");
@@ -53,11 +53,11 @@ class SpecProcessorTest {
                 )
         );
 
-        List<Map<String, String>> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet));
 
         assertThat(records).hasSize(2);
-        assertThat(records.get(0)).containsEntry("Car Name", "Nissan");
-        assertThat(records.get(1)).containsEntry("Car Name", "Toyota");
+        assertThat(records.get(0).get("Car Name")).isEqualTo("Nissan");
+        assertThat(records.get(1).get("Car Name")).isEqualTo("Toyota");
     }
 
     @Test
@@ -67,11 +67,11 @@ class SpecProcessorTest {
                 List.of(List.of("Nissan", "ignored", "6AA-E13"))
         );
 
-        List<Map<String, String>> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet));
 
         assertThat(records).hasSize(1);
-        assertThat(records.get(0)).doesNotContainKey("");
-        assertThat(records.get(0))
+        assertThat(records.get(0).fields()).doesNotContainKey("");
+        assertThat(records.get(0).fields())
                 .containsEntry("Car Name", "Nissan")
                 .containsEntry("Model Number", "6AA-E13");
     }
@@ -87,20 +87,18 @@ class SpecProcessorTest {
                 List.of(List.of("Toyota", "5BA-MXPK11"))
         );
 
-        List<Map<String, String>> records = processor.process(List.of(sheet1, sheet2));
+        List<SpecRecord> records = processor.process(List.of(sheet1, sheet2));
 
         assertThat(records).hasSize(2);
-        assertThat(records.get(0)).containsEntry("Car Name", "Nissan");
-        assertThat(records.get(1)).containsEntry("Car Name", "Toyota");
+        assertThat(records.get(0).get("Car Name")).isEqualTo("Nissan");
+        assertThat(records.get(1).get("Car Name")).isEqualTo("Toyota");
     }
 
     @Test
     void process_emptyHeaderList_returnsNoRecords() {
-        SheetData sheet = new SheetData();
-        sheet.setName("Empty");
-        sheet.getRows().add(new RowData(List.of("some", "data")));
+        SheetData sheet = new SheetData("Empty", 0, List.of(), List.of(new RowData(List.of("some", "data"))));
 
-        List<Map<String, String>> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet));
 
         assertThat(records).isEmpty();
     }
@@ -112,24 +110,33 @@ class SpecProcessorTest {
                 List.of(List.of("Nissan"))
         );
 
-        List<Map<String, String>> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet));
 
         assertThat(records).hasSize(1);
-        assertThat(records.get(0))
+        assertThat(records.get(0).fields())
                 .containsEntry("Car Name", "Nissan")
                 .containsEntry("Common Name", "")
                 .containsEntry("Model Number", "");
     }
 
+    @Test
+    void specRecord_get_returnsEmptyStringForAbsentHeader() {
+        SheetData sheet = buildSheet(
+                List.of("Car Name"),
+                List.of(List.of("Nissan"))
+        );
+
+        SpecRecord record = processor.process(List.of(sheet)).get(0);
+
+        assertThat(record.get("NonExistent")).isEmpty();
+    }
+
     // --- Helper ---
 
     private SheetData buildSheet(List<String> headers, List<List<String>> rowValues) {
-        SheetData sheet = new SheetData();
-        sheet.setName("TestSheet");
-        sheet.setHeaders(headers);
-        for (List<String> values : rowValues) {
-            sheet.getRows().add(new RowData(values));
-        }
-        return sheet;
+        List<RowData> rows = rowValues.stream()
+                .map(RowData::new)
+                .toList();
+        return new SheetData("TestSheet", 0, headers, rows);
     }
 }

@@ -54,30 +54,27 @@ public class WorkBookReader {
     }
 
     private SheetData readSheet(Sheet sheet, int index, FormulaEvaluator evaluator) {
-        SheetData sheetData = new SheetData();
-        sheetData.setName(sheet.getSheetName());
-        sheetData.setIndex(index);
-
         int lastRow = sheet.getLastRowNum();
+
         if (lastRow < 0) {
             log.warn("Sheet '{}' is empty", sheet.getSheetName());
-            return sheetData;
+            return SheetData.empty(sheet.getSheetName(), index);
         }
 
         Row headerRow = sheet.getRow(0);
-        if (headerRow != null) {
-            sheetData.setHeaders(readRow(headerRow, evaluator));
-        }
+        List<String> headers = headerRow != null ? readRow(headerRow, evaluator) : List.of();
 
+        List<RowData> rows = new ArrayList<>();
         for (int rowIndex = 1; rowIndex <= lastRow; rowIndex++) {
             Row row = sheet.getRow(rowIndex);
             if (row == null) continue;
-            sheetData.getRows().add(new RowData(readRow(row, evaluator)));
+            rows.add(new RowData(readRow(row, evaluator)));
         }
 
-        log.debug("Sheet '{}': {} header(s), {} data row(s)",
-                sheetData.getName(), sheetData.getHeaders().size(), sheetData.getRows().size());
-        return sheetData;
+        log.debug("Sheet '{}': {} column(s), {} data row(s)",
+                sheet.getSheetName(), headers.size(), rows.size());
+
+        return new SheetData(sheet.getSheetName(), index, headers, rows);
     }
 
     private List<String> readRow(Row row, FormulaEvaluator evaluator) {
