@@ -7,7 +7,8 @@ import java.nio.file.Path;
 @Slf4j
 public record Config(
         Path inputFile,
-        Path outputFile
+        Path outputFile,
+        String deeplApiKey
 ) {
     public static Config fromArgs(String[] args) {
         if (args.length != 1) {
@@ -15,12 +16,23 @@ public record Config(
         }
 
         Path inputFile = Path.of(args[0]);
-        return new Config(inputFile, OutputNamer.derive(inputFile));
+        return new Config(inputFile, OutputNamer.derive(inputFile), resolveDeeplApiKey());
     }
 
     public void validate() {
         if (!inputFile.toFile().exists()) {
             throw new IllegalArgumentException("Input file does not exist: " + inputFile.toAbsolutePath());
         }
+    }
+
+    private static String resolveDeeplApiKey() {
+        String key = System.getenv("DEEPL_API_KEY");
+        if (key == null || key.isBlank()) {
+            throw new IllegalStateException(
+                    "DEEPL_API_KEY environment variable is not set. " +
+                    "Export it before running: export DEEPL_API_KEY=your-key"
+            );
+        }
+        return key;
     }
 }

@@ -46,6 +46,11 @@
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.deepl.api</groupId>
+            <artifactId>deepl-java</artifactId>
+            <version>1.14.0</version>
+        </dependency>
 
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -76,6 +81,11 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.5</version>
+                <configuration>
+                    <environmentVariables>
+                        <DEEPL_API_KEY>test-api-key-placeholder</DEEPL_API_KEY>
+                    </environmentVariables>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
