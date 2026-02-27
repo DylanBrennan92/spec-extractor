@@ -2,6 +2,7 @@ package com.originspecs.specextractor.processor;
 
 import com.originspecs.specextractor.model.RowData;
 import com.originspecs.specextractor.model.SheetData;
+import com.originspecs.specextractor.model.SpecRecord;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -10,60 +11,58 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Converts a list of SheetData objects into a flat list of spec records.
- * Each record is a {@link LinkedHashMap} of header name → cell value, preserving column order.
+ * Converts a list of SheetData objects into a flat list of SpecRecords.
+ * Column order matches the header order in the source sheet.
  * Columns with blank headers and completely empty rows are skipped.
  */
 @Slf4j
 public class SpecProcessor {
 
     /**
-     * Processes all sheets and returns a combined flat list of records from all of them.
+     * Processes all sheets and returns a combined flat list of records.
      *
      * @param sheets List of SheetData read from the pre-processed workbook
-     * @return Flat list of records, one map per data row across all sheets
+     * @return Flat list of SpecRecords, one per data row across all sheets
      */
-    public List<Map<String, String>> process(List<SheetData> sheets) {
-        List<Map<String, String>> records = new ArrayList<>();
+    public List<SpecRecord> process(List<SheetData> sheets) {
+        List<SpecRecord> records = new ArrayList<>();
 
         for (SheetData sheet : sheets) {
-            List<Map<String, String>> sheetRecords = processSheet(sheet);
+            List<SpecRecord> sheetRecords = processSheet(sheet);
             records.addAll(sheetRecords);
-            log.info("Sheet '{}': extracted {} record(s)", sheet.getName(), sheetRecords.size());
+            log.info("Sheet '{}': extracted {} record(s)", sheet.name(), sheetRecords.size());
         }
 
         log.info("Total records extracted: {}", records.size());
         return records;
     }
 
-    private List<Map<String, String>> processSheet(SheetData sheet) {
-        List<String> headers = sheet.getHeaders();
-
-        if (headers.isEmpty()) {
-            log.warn("Sheet '{}' has no headers — skipping", sheet.getName());
+    private List<SpecRecord> processSheet(SheetData sheet) {
+        if (sheet.headers().isEmpty()) {
+            log.warn("Sheet '{}' has no headers — skipping", sheet.name());
             return List.of();
         }
 
-        List<Map<String, String>> records = new ArrayList<>();
+        List<SpecRecord> records = new ArrayList<>();
 
-        for (RowData row : sheet.getRows()) {
+        for (RowData row : sheet.rows()) {
             if (row.isEmpty()) {
-                log.trace("Skipping empty row in sheet '{}'", sheet.getName());
+                log.trace("Skipping empty row in sheet '{}'", sheet.name());
                 continue;
             }
-            records.add(toMap(headers, row));
+            records.add(toRecord(sheet.headers(), row));
         }
 
         return records;
     }
 
-    private Map<String, String> toMap(List<String> headers, RowData row) {
-        Map<String, String> record = new LinkedHashMap<>();
+    private SpecRecord toRecord(List<String> headers, RowData row) {
+        Map<String, String> fields = new LinkedHashMap<>();
         for (int i = 0; i < headers.size(); i++) {
             String header = headers.get(i);
             if (header.isBlank()) continue;
-            record.put(header, row.getCell(i));
+            fields.put(header, row.getCell(i));
         }
-        return record;
+        return new SpecRecord(fields);
     }
 }

@@ -2,16 +2,17 @@ package com.originspecs.specextractor.writer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.originspecs.specextractor.model.SpecRecord;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Serialises a list of spec records (header → value maps) to a pretty-printed JSON file.
+ * Serialises a list of SpecRecords to a pretty-printed JSON file.
+ * Each record is serialised as a flat JSON object (header → value).
  */
 @Slf4j
 public class JsonWriter {
@@ -23,11 +24,11 @@ public class JsonWriter {
      * Writes the given records to a JSON file at {@code outputPath}.
      * The output directory is created if it does not already exist.
      *
-     * @param records    List of header → value maps to serialise
+     * @param records    SpecRecords to serialise
      * @param outputPath Destination file path
      * @throws IOException if the file cannot be written
      */
-    public void write(List<Map<String, String>> records, Path outputPath) throws IOException {
+    public void write(List<SpecRecord> records, Path outputPath) throws IOException {
         ensureOutputDirectoryExists(outputPath);
 
         String json = OBJECT_MAPPER.writeValueAsString(records);

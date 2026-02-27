@@ -12,16 +12,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for {@link Config} argument parsing and output path derivation.
+ * Unit tests for {@link Config} argument parsing, {@link OutputNamer} path derivation,
+ * and {@link CliParser} exception behaviour.
  *
  * Note: {@code Config.validate()} checks the input file exists on disk, so
- * we test only {@code Config.fromArgs()} and {@code Config.deriveOutputPath()} here.
+ * we test only {@code Config.fromArgs()} and {@code OutputNamer} here.
  */
 class ConfigTest {
 
     private static final String VALID_INPUT = "input.xls";
 
-    // --- Happy path ---
+    // --- Config.fromArgs happy path ---
 
     @Test
     void fromArgs_validArgument_createsConfigWithCorrectInputFile() {
@@ -53,40 +54,7 @@ class ConfigTest {
         assertThat(config.outputFile().getFileName().toString()).endsWith(".json");
     }
 
-    // --- Output path derivation ---
-
-    @Test
-    void deriveOutputPath_stripsExtensionAndAppendsSuffix() {
-        Path output = Config.deriveOutputPath(Path.of("myfile.xls"));
-        String filename = output.getFileName().toString();
-
-        assertThat(filename).startsWith("myfile_");
-        assertThat(filename).endsWith(".json");
-        // baseName(6) + "_"(1) + suffix(10) + ".json"(5) = 22 chars
-        assertThat(filename).hasSize(22);
-    }
-
-    @Test
-    void deriveOutputPath_suffixIsAlphanumericAndTenCharsLong() {
-        Path output = Config.deriveOutputPath(Path.of("data.xls"));
-        String filename = output.getFileName().toString();
-        // extract the 10-char suffix between "_" and ".json"
-        String suffix = filename.substring(filename.lastIndexOf('_') + 1, filename.lastIndexOf('.'));
-
-        assertThat(suffix).hasSize(10);
-        assertThat(suffix).matches("[a-z0-9]+");
-    }
-
-    @Test
-    void deriveOutputPath_producesUniqueSuffixesAcrossMultipleCalls() {
-        Set<Path> outputs = new HashSet<>();
-        for (int i = 0; i < 20; i++) {
-            outputs.add(Config.deriveOutputPath(Path.of("data.xls")));
-        }
-        assertThat(outputs).hasSizeGreaterThan(1);
-    }
-
-    // --- Wrong argument count ---
+    // --- Config.fromArgs wrong argument count ---
 
     @ParameterizedTest
     @ValueSource(ints = {0, 2, 3})
@@ -99,5 +67,53 @@ class ConfigTest {
         assertThatThrownBy(() -> Config.fromArgs(args))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("1 argument required");
+    }
+
+    // --- OutputNamer ---
+
+    @Test
+    void outputNamer_stripsExtensionAndAppendsSuffix() {
+        Path output = OutputNamer.derive(Path.of("myfile.xls"));
+        String filename = output.getFileName().toString();
+
+        assertThat(filename).startsWith("myfile_");
+        assertThat(filename).endsWith(".json");
+        // baseName(6) + "_"(1) + suffix(10) + ".json"(5) = 22 chars
+        assertThat(filename).hasSize(22);
+    }
+
+    @Test
+    void outputNamer_suffixIsAlphanumericAndTenCharsLong() {
+        Path output = OutputNamer.derive(Path.of("data.xls"));
+        String filename = output.getFileName().toString();
+        String suffix = filename.substring(filename.lastIndexOf('_') + 1, filename.lastIndexOf('.'));
+
+        assertThat(suffix).hasSize(10);
+        assertThat(suffix).matches("[a-z0-9]+");
+    }
+
+    @Test
+    void outputNamer_producesUniqueSuffixesAcrossMultipleCalls() {
+        Set<Path> outputs = new HashSet<>();
+        for (int i = 0; i < 20; i++) {
+            outputs.add(OutputNamer.derive(Path.of("data.xls")));
+        }
+        assertThat(outputs).hasSizeGreaterThan(1);
+    }
+
+    @Test
+    void outputNamer_placesFileInOutputDirectory() {
+        Path output = OutputNamer.derive(Path.of("any.xls"));
+
+        assertThat(output.getParent().toString())
+                .isEqualTo(Constants.OUTPUT_DIR);
+    }
+
+    // --- CliParser ---
+
+    @Test
+    void cliParser_invalidArgs_throwsCliException() {
+        assertThatThrownBy(() -> CliParser.parseOrExit(new String[]{}))
+                .isInstanceOf(CliException.class);
     }
 }
