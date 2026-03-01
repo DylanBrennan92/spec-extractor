@@ -17,7 +17,7 @@ import java.util.List;
  * Wires all components together. Contains no business logic.
  */
 @Slf4j
-public class SpecExtractorOrchestrator {
+public class Orchestrator {
 
     private final WorkBookReader reader;
     private final SpecProcessor processor;
@@ -26,7 +26,7 @@ public class SpecExtractorOrchestrator {
     /**
      * Default constructor: wires all components with their default implementations.
      */
-    public SpecExtractorOrchestrator() {
+    public Orchestrator() {
         this.reader = new WorkBookReader();
         this.processor = new SpecProcessor();
         this.writer = new JsonWriter();
@@ -35,7 +35,7 @@ public class SpecExtractorOrchestrator {
     /**
      * Full constructor for testing — inject any implementation of each component.
      */
-    public SpecExtractorOrchestrator(WorkBookReader reader, SpecProcessor processor, JsonWriter writer) {
+    public Orchestrator(WorkBookReader reader, SpecProcessor processor, JsonWriter writer) {
         this.reader = reader;
         this.processor = processor;
         this.writer = writer;
