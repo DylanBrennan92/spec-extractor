@@ -7,7 +7,7 @@ public final class CliParser {
 
     private static final String USAGE = """
             Usage: java -jar spec-extractor.jar <inputFile.xls>
-            Output is written automatically to src/main/resources/local-data/output/ with a random suffix.
+            Output is written automatically to src/main/resources/local-data/output/ as {timestamp}_{input_base_name}.json.
             Example: java -jar target/spec-extractor.jar src/main/resources/local-data/input/pre_processed_file.xls
             """;
 

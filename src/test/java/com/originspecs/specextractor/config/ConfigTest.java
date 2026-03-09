@@ -5,8 +5,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -44,7 +42,8 @@ class ConfigTest {
         Config config = Config.fromArgs(new String[]{"pre_processed_file.xls"});
 
         assertThat(config.outputFile().getFileName().toString())
-                .startsWith("pre_processed_file_");
+                .contains("pre_processed_file")
+                .endsWith(".json");
     }
 
     @Test
@@ -72,33 +71,33 @@ class ConfigTest {
     // --- OutputNamer ---
 
     @Test
-    void outputNamer_stripsExtensionAndAppendsSuffix() {
+    void outputNamer_usesIsoTimestampAndOriginalBaseName() {
         Path output = OutputNamer.derive(Path.of("myfile.xls"));
         String filename = output.getFileName().toString();
 
-        assertThat(filename).startsWith("myfile_");
+        assertThat(filename).startsWith("20"); // year
+        assertThat(filename).contains("_myfile.json");
         assertThat(filename).endsWith(".json");
-        // baseName(6) + "_"(1) + suffix(10) + ".json"(5) = 22 chars
-        assertThat(filename).hasSize(22);
+        assertThat(filename).matches("\\d{8}T\\d{6}_myfile\\.json");
     }
 
     @Test
-    void outputNamer_suffixIsAlphanumericAndTenCharsLong() {
+    void outputNamer_timestampFormatIsDateHoursMinutesSeconds() {
         Path output = OutputNamer.derive(Path.of("data.xls"));
         String filename = output.getFileName().toString();
-        String suffix = filename.substring(filename.lastIndexOf('_') + 1, filename.lastIndexOf('.'));
+        String timestamp = filename.substring(0, filename.indexOf('_'));
 
-        assertThat(suffix).hasSize(10);
-        assertThat(suffix).matches("[a-z0-9]+");
+        assertThat(timestamp).matches("\\d{8}T\\d{6}");
+        assertThat(timestamp).hasSize(15);
     }
 
     @Test
-    void outputNamer_producesUniqueSuffixesAcrossMultipleCalls() {
-        Set<Path> outputs = new HashSet<>();
-        for (int i = 0; i < 20; i++) {
-            outputs.add(OutputNamer.derive(Path.of("data.xls")));
-        }
-        assertThat(outputs).hasSizeGreaterThan(1);
+    void outputNamer_preservesOriginalBaseName() {
+        Path output = OutputNamer.derive(Path.of("5.1.Gzyouyou_WLTC_output.xls"));
+        String filename = output.getFileName().toString();
+
+        assertThat(filename).contains("5.1.Gzyouyou_WLTC_output");
+        assertThat(filename).endsWith(".json");
     }
 
     @Test
@@ -107,6 +106,16 @@ class ConfigTest {
 
         assertThat(output.getParent().toString())
                 .isEqualTo(Constants.OUTPUT_DIR);
+    }
+
+    @Test
+    void outputNamer_handlesInputWithoutExtension() {
+        Path output = OutputNamer.derive(Path.of("noextension"));
+
+        assertThat(output.getFileName().toString())
+                .contains("noextension")
+                .endsWith(".json");
+        assertThat(output.getFileName().toString()).matches("\\d{8}T\\d{6}_noextension\\.json");
     }
 
     // --- CliParser ---

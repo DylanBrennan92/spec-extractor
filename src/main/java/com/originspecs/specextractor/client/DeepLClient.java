@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.originspecs.specextractor.config.Constants;
 import com.originspecs.specextractor.model.TranslationRequest;
 import com.originspecs.specextractor.model.TranslationResponse;
+import com.originspecs.specextractor.model.UsageResponse;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
@@ -70,6 +71,39 @@ public class DeepLClient {
             throw e;
         } catch (Exception e) {
             throw new DeepLApiException("Failed to contact DeepL API: " + e.getMessage(), -1, "");
+        }
+    }
+
+    /**
+     * Fetches current usage and quota from DeepL.
+     *
+     * @return Usage response with character_count and character_limit, or null on failure
+     */
+    public UsageResponse getUsage() {
+        try {
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(Constants.DEEPL_USAGE_URL))
+                    .header("Authorization", "DeepL-Auth-Key " + apiKey)
+                    .header("User-Agent", "spec-extractor")
+                    .GET()
+                    .build();
+
+            HttpResponse<String> httpResponse = httpClient.send(
+                    httpRequest, HttpResponse.BodyHandlers.ofString());
+
+            if (httpResponse.statusCode() != 200) {
+                log.warn("DeepL usage API returned status {}", httpResponse.statusCode());
+                return null;
+            }
+
+            return OBJECT_MAPPER.readValue(httpResponse.body(), UsageResponse.class);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Could not fetch DeepL usage: interrupted");
+            return null;
+        } catch (Exception e) {
+            log.warn("Could not fetch DeepL usage: {}", e.getMessage());
+            return null;
         }
     }
 }

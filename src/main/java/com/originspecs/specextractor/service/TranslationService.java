@@ -5,6 +5,7 @@ import com.originspecs.specextractor.model.RowData;
 import com.originspecs.specextractor.model.SheetData;
 import com.originspecs.specextractor.model.TranslationRequest;
 import com.originspecs.specextractor.model.TranslationResponse;
+import com.originspecs.specextractor.model.UsageResponse;
 import com.originspecs.specextractor.config.Constants;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,7 +24,14 @@ public class TranslationService {
 
     private final DeepLClient client;
 
+    private int lastRunBilledCharacters;
+
     private record CellPosition(int sheetIndex, int rowIndex, int colIndex, String originalText) {}
+
+    /** Returns the total billed characters from the last translate run. */
+    public int getLastRunBilledCharacters() {
+        return lastRunBilledCharacters;
+    }
 
     /** Default constructor for production — client is created per translate call. */
     public TranslationService() {
@@ -55,7 +63,7 @@ public class TranslationService {
         List<List<String>> batches = batch(textsToTranslate);
         log.info("Split into {} batch(es) of up to {} texts", batches.size(), DEEPL_BATCH_SIZE);
 
-        List<String> translatedTexts = sendBatches(batches, apiKey);
+        List<String> translatedTexts = sendBatchesWithUsageLogging(batches, apiKey);
 
         return rebuildSheets(sheets, positions, translatedTexts);
     }
@@ -91,23 +99,60 @@ public class TranslationService {
         return batches;
     }
 
-    private List<String> sendBatches(List<List<String>> batches, String apiKey) {
+    private List<String> sendBatchesWithUsageLogging(List<List<String>> batches, String apiKey) {
         DeepLClient clientToUse = this.client != null ? this.client : new DeepLClient(apiKey);
+
+        logUsageBefore(clientToUse);
+
         List<String> allTranslated = new ArrayList<>();
+        int totalBilledThisRun = 0;
 
         for (int i = 0; i < batches.size(); i++) {
             log.debug("Sending batch {}/{}", i + 1, batches.size());
 
-            TranslationRequest request = new TranslationRequest(batches.get(i),
-                    Constants.SOURCE_LANG, Constants.TARGET_LANG);
+            TranslationRequest request = new TranslationRequest(
+                    batches.get(i),
+                    Constants.SOURCE_LANG,
+                    Constants.TARGET_LANG,
+                    Constants.DEEPL_CUSTOM_INSTRUCTIONS,
+                    Constants.DEEPL_CONTEXT,
+                    true);
             TranslationResponse response = clientToUse.translate(request);
 
+            if (response.billedCharacters() != null) {
+                totalBilledThisRun += response.billedCharacters();
+            } else {
+                for (TranslationResponse.Translation t : response.translations()) {
+                    if (t.billedCharacters() != null) {
+                        totalBilledThisRun += t.billedCharacters();
+                    }
+                }
+            }
             response.translations().stream()
                     .map(TranslationResponse.Translation::text)
                     .forEach(allTranslated::add);
         }
 
+        lastRunBilledCharacters = totalBilledThisRun;
+        logUsageAfter(clientToUse, totalBilledThisRun);
         return allTranslated;
+    }
+
+    private void logUsageBefore(DeepLClient client) {
+        UsageResponse usage = client.getUsage();
+        if (usage != null) {
+            log.info("DeepL quota before translation: {} chars remaining (used: {}/{})",
+                    usage.charsRemaining(), usage.characterCount(), usage.characterLimit());
+        }
+    }
+
+    private void logUsageAfter(DeepLClient client, int totalBilledThisRun) {
+        UsageResponse usage = client.getUsage();
+        if (usage != null) {
+            log.info("DeepL quota after translation: {} chars remaining (used: {}/{})",
+                    usage.charsRemaining(), usage.characterCount(), usage.characterLimit());
+        }
+        log.info("Chars converted this run: {}", totalBilledThisRun);
     }
 
     private List<SheetData> rebuildSheets(List<SheetData> originalSheets,

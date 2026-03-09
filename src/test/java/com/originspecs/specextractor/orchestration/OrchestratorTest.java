@@ -19,6 +19,10 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -95,5 +99,27 @@ class OrchestratorTest {
         ArgumentCaptor<List<SheetData>> processArg = ArgumentCaptor.forClass(List.class);
         verify(processor).process(processArg.capture());
         assertThat(processArg.getValue()).isSameAs(translatedSheets);
+    }
+
+    @Test
+    void execute_propagatesIOExceptionFromReader() throws IOException {
+        when(reader.read(INPUT_PATH)).thenThrow(new IOException("read failed"));
+
+        assertThatThrownBy(() -> orchestrator.execute(config))
+                .isInstanceOf(IOException.class)
+                .hasMessage("read failed");
+    }
+
+    @Test
+    void execute_propagatesIOExceptionFromWriter() throws IOException {
+        List<SheetData> sheets = List.of(SheetData.empty("S", 0));
+        when(reader.read(INPUT_PATH)).thenReturn(sheets);
+        when(translationService.translate(sheets, API_KEY)).thenReturn(sheets);
+        when(processor.process(sheets)).thenReturn(List.of());
+        doThrow(new IOException("write failed")).when(writer).write(anyList(), eq(OUTPUT_PATH));
+
+        assertThatThrownBy(() -> orchestrator.execute(config))
+                .isInstanceOf(IOException.class)
+                .hasMessage("write failed");
     }
 }
