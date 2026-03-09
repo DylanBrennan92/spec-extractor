@@ -1,22 +1,22 @@
 package com.originspecs.specextractor.config;
 
 import java.nio.file.Path;
-import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Derives the output JSON file path from a given input file path.
- * The input filename has its extension replaced with {@code .json},
- * a 10-character random alphanumeric suffix appended, and is placed
- * in {@link Constants#OUTPUT_DIR}.
+ * The output filename is {@code {iso_timestamp}_{original_base_name}.json},
+ * with the timestamp in format {@code yyyyMMdd'T'HHmmss} (date, hours, minutes, seconds).
+ * The file is placed in {@link Constants#OUTPUT_DIR}.
  *
  * <p>e.g. {@code pre_processed_file.xls}
- * → {@code src/main/resources/local-data/output/pre_processed_file_a3k7xq29nz.json}
+ * → {@code src/main/resources/local-data/output/20260225T214530_pre_processed_file.json}
  */
 public final class OutputNamer {
 
-    private static final String ALPHANUMERIC = "abcdefghijklmnopqrstuvwxyz0123456789";
-    private static final int SUFFIX_LENGTH = 10;
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final DateTimeFormatter TIMESTAMP_FORMAT =
+            DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss");
 
     private OutputNamer() {}
 
@@ -27,18 +27,12 @@ public final class OutputNamer {
      * @return Path to the output .json file in the fixed output directory
      */
     public static Path derive(Path inputFile) {
-        String inputName = inputFile.getFileName().toString();
+        Path fileName = inputFile.getFileName();
+        String inputName = fileName != null ? fileName.toString() : inputFile.toString();
         int dotIndex = inputName.lastIndexOf('.');
         String baseName = dotIndex > 0 ? inputName.substring(0, dotIndex) : inputName;
-        String outputName = baseName + "_" + randomAlphanumeric(SUFFIX_LENGTH) + ".json";
+        String timestamp = LocalDateTime.now().format(TIMESTAMP_FORMAT);
+        String outputName = timestamp + "_" + baseName + ".json";
         return Path.of(Constants.OUTPUT_DIR, outputName);
-    }
-
-    private static String randomAlphanumeric(int length) {
-        StringBuilder sb = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            sb.append(ALPHANUMERIC.charAt(RANDOM.nextInt(ALPHANUMERIC.length())));
-        }
-        return sb.toString();
     }
 }

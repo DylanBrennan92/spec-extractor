@@ -73,9 +73,8 @@ java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar <inputFil
 |-----------------|----------|-------------------------------------------------------|----------------------------------------------------------------|
 | `inputFile.xls` | Yes      | Path to the pre-processed .xls file (DataPrep output) | `src/main/resources/local-data/input/pre_processed_file.xls`  |
 
-The output file is generated automatically — the input filename has its extension replaced with
-`.json`, a 10-character random alphanumeric suffix appended, and is written to
-`src/main/resources/local-data/output/`.
+The output file is generated automatically — the filename is `{iso_timestamp}_{original_base_name}.json`
+(e.g. `20260225T214530_pre_processed_file.json`), written to `src/main/resources/local-data/output/`.
 
 ## Example
 
