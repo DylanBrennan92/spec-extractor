@@ -201,6 +201,43 @@ class TranslationServiceTest {
     }
 
     @Test
+    void translate_purelyNumericCells_skippedAndKeptAsIs() {
+        SheetData sheet = buildSheet(
+                List.of("Car Name", "Weight", "Displacement"),
+                List.of(
+                        List.of("ニッサン", "1190", "1.198"),
+                        List.of("トヨタ", "650~670", "0.658")
+                )
+        );
+
+        when(mockClient.translate(any(TranslationRequest.class)))
+                .thenReturn(responseWithTranslations("Nissan", "Toyota"));
+
+        List<SheetData> result = translationService.translate(List.of(sheet), "fake-api-key");
+
+        ArgumentCaptor<TranslationRequest> captor = ArgumentCaptor.forClass(TranslationRequest.class);
+        verify(mockClient).translate(captor.capture());
+        assertThat(captor.getValue().text()).containsExactly("ニッサン", "トヨタ");
+
+        assertThat(result.get(0).rows().get(0).cellValues()).containsExactly("Nissan", "1190", "1.198");
+        assertThat(result.get(0).rows().get(1).cellValues()).containsExactly("Toyota", "650~670", "0.658");
+    }
+
+    @Test
+    void translate_allNumericCells_doesNotCallClient() {
+        SheetData sheet = buildSheet(
+                List.of("A", "B"),
+                List.of(List.of("1190", "0.658"), List.of("25.0", "650~670"))
+        );
+
+        List<SheetData> result = translationService.translate(List.of(sheet), "fake-api-key");
+
+        verify(mockClient, never()).translate(any(TranslationRequest.class));
+        assertThat(result.get(0).rows().get(0).cellValues()).containsExactly("1190", "0.658");
+        assertThat(result.get(0).rows().get(1).cellValues()).containsExactly("25.0", "650~670");
+    }
+
+    @Test
     void translate_preservesSheetStructureAndHeaders() {
         SheetData sheet = buildSheet(
                 List.of("Header1", "Header2"),

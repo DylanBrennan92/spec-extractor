@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * Translates all cell values in a list of SheetData from Japanese to English
@@ -21,6 +22,9 @@ import java.util.List;
 public class TranslationService {
 
     private static final int DEEPL_BATCH_SIZE = Constants.DEEPL_BATCH_SIZE;
+
+    /** Values matching this pattern (ints, decimals, ranges, percentages) are kept as-is — no DeepL call. */
+    private static final Pattern PURELY_NUMERIC = Pattern.compile("^[\\d\\s.,~\\-%]+$");
 
     private final DeepLClient client;
 
@@ -54,16 +58,24 @@ public class TranslationService {
         log.info("Starting translation for {} sheet(s)", sheets.size());
 
         List<CellPosition> positions = extractTexts(sheets);
-        log.info("Extracted {} non-blank cell(s) to translate", positions.size());
+        int totalNonBlank = countNonBlankCells(sheets);
+        int skipped = totalNonBlank - positions.size();
+        log.info("Extracted {} non-blank cell(s); {} to translate, {} skipped (purely numeric)",
+                totalNonBlank, positions.size(), skipped);
 
         List<String> textsToTranslate = positions.stream()
                 .map(CellPosition::originalText)
                 .toList();
 
-        List<List<String>> batches = batch(textsToTranslate);
-        log.info("Split into {} batch(es) of up to {} texts", batches.size(), DEEPL_BATCH_SIZE);
-
-        List<String> translatedTexts = sendBatchesWithUsageLogging(batches, apiKey);
+        List<String> translatedTexts;
+        if (positions.isEmpty()) {
+            log.info("No cells require translation — skipping DeepL API");
+            translatedTexts = List.of();
+        } else {
+            List<List<String>> batches = batch(textsToTranslate);
+            log.info("Split into {} batch(es) of up to {} texts", batches.size(), DEEPL_BATCH_SIZE);
+            translatedTexts = sendBatchesWithUsageLogging(batches, apiKey);
+        }
 
         return rebuildSheets(sheets, positions, translatedTexts);
     }
@@ -79,7 +91,7 @@ public class TranslationService {
 
                 for (int colIndex = 0; colIndex < cells.size(); colIndex++) {
                     String cell = cells.get(colIndex);
-                    if (!cell.isBlank()) {
+                    if (!cell.isBlank() && !isPurelyNumeric(cell)) {
                         cellPositions.add(new CellPosition(sheetIndex, rowIndex, colIndex, cell));
                     }
                 }
@@ -87,6 +99,23 @@ public class TranslationService {
         }
 
         return cellPositions;
+    }
+
+    private int countNonBlankCells(List<SheetData> sheets) {
+        int count = 0;
+        for (SheetData sheet : sheets) {
+            for (RowData row : sheet.rows()) {
+                for (String cell : row.cellValues()) {
+                    if (!cell.isBlank()) count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /** Returns true if the value is purely numeric (ints, decimals, ranges, percentages) — no translation needed. */
+    static boolean isPurelyNumeric(String value) {
+        return value != null && PURELY_NUMERIC.matcher(value.trim()).matches();
     }
 
     private List<List<String>> batch(List<String> texts) {
