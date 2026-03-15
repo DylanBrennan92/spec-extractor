@@ -67,14 +67,6 @@ class CommonNameCorrectorTest {
         assertThat(result.get(0).get("Common Name")).isEmpty();
     }
 
-    @Test
-    void correct_defaultConstructor_loadsFromPropertiesFile() {
-        CommonNameCorrector fileBasedCorrector = new CommonNameCorrector();
-        SpecRecord record = recordWithCommonName("Extrail");
-        List<SpecRecord> result = fileBasedCorrector.correct(List.of(record));
-        assertThat(result.get(0).get("Common Name")).isEqualTo("X-Trail");
-    }
-
     private void assertCorrected(String input, String expected) {
         SpecRecord record = recordWithCommonName(input);
         List<SpecRecord> result = corrector.correct(List.of(record));

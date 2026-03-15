@@ -35,7 +35,9 @@ public class CommonNameCorrector {
     private static Map<String, String> loadMistranslations() {
         try (InputStream is = CommonNameCorrector.class.getResourceAsStream("/" + CORRECTIONS_RESOURCE)) {
             if (is == null) {
-                log.warn("{} not found — no Common Name corrections applied", CORRECTIONS_RESOURCE);
+                if (log.isWarnEnabled()) {
+                    log.warn("{} not found — no Common Name corrections applied", CORRECTIONS_RESOURCE);
+                }
                 return Map.of();
             }
             Properties props = new Properties();
@@ -44,7 +46,9 @@ public class CommonNameCorrector {
             props.forEach((k, v) -> result.put(String.valueOf(k), String.valueOf(v)));
             return Map.copyOf(result);
         } catch (IOException e) {
-            log.warn("Failed to load {}: {} — no corrections applied", CORRECTIONS_RESOURCE, e.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("Failed to load {}: {} — no corrections applied", CORRECTIONS_RESOURCE, e.getMessage());
+            }
             return Map.of();
         }
     }
@@ -69,7 +73,9 @@ public class CommonNameCorrector {
             return record;
         }
 
-        log.debug("Common Name correction: '{}' → '{}'", commonName, corrected);
+        if (log.isDebugEnabled()) {
+            log.debug("Common Name correction: '{}' → '{}'", commonName, corrected);
+        }
 
         Map<String, String> newFields = new LinkedHashMap<>(record.fields());
         newFields.put(COMMON_NAME_HEADER, corrected);
