@@ -3,6 +3,7 @@ package com.originspecs.specextractor.orchestration;
 import com.originspecs.specextractor.config.Config;
 import com.originspecs.specextractor.model.SheetData;
 import com.originspecs.specextractor.model.SpecRecord;
+import com.originspecs.specextractor.processor.CommonNameCorrector;
 import com.originspecs.specextractor.processor.SpecProcessor;
 import com.originspecs.specextractor.reader.WorkBookReader;
 import com.originspecs.specextractor.service.TranslationService;
@@ -23,6 +24,7 @@ public class Orchestrator {
     private final WorkBookReader reader;
     private final TranslationService translationService;
     private final SpecProcessor processor;
+    private final CommonNameCorrector commonNameCorrector;
     private final JsonWriter writer;
 
     /**
@@ -32,6 +34,7 @@ public class Orchestrator {
         this.reader = new WorkBookReader();
         this.translationService = new TranslationService();
         this.processor = new SpecProcessor();
+        this.commonNameCorrector = new CommonNameCorrector();
         this.writer = new JsonWriter();
     }
 
@@ -39,10 +42,12 @@ public class Orchestrator {
      * Full constructor for testing — inject any implementation of each component.
      */
     public Orchestrator(WorkBookReader reader, SpecProcessor processor,
-     JsonWriter writer, TranslationService translationService) {
+            CommonNameCorrector commonNameCorrector, JsonWriter writer,
+            TranslationService translationService) {
         this.reader = reader;
         this.translationService = translationService;
         this.processor = processor;
+        this.commonNameCorrector = commonNameCorrector != null ? commonNameCorrector : new CommonNameCorrector();
         this.writer = writer;
     }
 
@@ -59,6 +64,7 @@ public class Orchestrator {
         List<SheetData> sheets = read(config.inputFile());
         List<SheetData> translatedSheets = translate(sheets, config.deeplApiKey());
         List<SpecRecord> records = process(translatedSheets);
+        records = commonNameCorrector.correct(records);
         write(records, config.outputFile());
 
         log.info("Pipeline completed successfully");
