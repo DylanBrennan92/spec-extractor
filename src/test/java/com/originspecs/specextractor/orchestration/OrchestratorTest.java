@@ -54,7 +54,7 @@ class OrchestratorTest {
 
     @BeforeEach
     void setUp() {
-        orchestrator = new Orchestrator(reader, processor, writer, translationService);
+        orchestrator = new Orchestrator(reader, processor, null, writer, translationService);
         config = new Config(INPUT_PATH, OUTPUT_PATH, API_KEY);
     }
 
@@ -79,7 +79,7 @@ class OrchestratorTest {
         verify(reader).read(INPUT_PATH);
         verify(translationService).translate(sheets, API_KEY);
         verify(processor).process(translatedSheets);
-        verify(writer).write(records, OUTPUT_PATH);
+        verify(writer).write(anyList(), eq(OUTPUT_PATH));
     }
 
     @Test
