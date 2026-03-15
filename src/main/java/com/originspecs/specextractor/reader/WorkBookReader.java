@@ -23,7 +23,7 @@ import java.util.List;
  * No header detection, merged cell expansion, or column filtering is performed here.
  */
 @Slf4j
-public class WorkBookReader {
+public class WorkBookReader implements WorkbookReader {
 
     private final DataFormatter formatter = new DataFormatter();
 

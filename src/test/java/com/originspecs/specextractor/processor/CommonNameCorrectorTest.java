@@ -11,7 +11,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class CommonNameCorrectorTest {
 
-    private final CommonNameCorrector corrector = new CommonNameCorrector();
+    private static final Map<String, String> TEST_MISTRANSLATIONS = Map.ofEntries(
+            Map.entry("I'm Ease", "Mira e:S"),
+            Map.entry("Here and there", "Mira Tocot"),
+            Map.entry("Vroom", "Boon"),
+            Map.entry("Extrail", "X-Trail"),
+            Map.entry("Randy", "Landy"),
+            Map.entry("Insights", "Insight")
+    );
+
+    private final CommonNameCorrector corrector = new CommonNameCorrector(TEST_MISTRANSLATIONS);
 
     @Test
     void correct_mistranslations_replaced() {

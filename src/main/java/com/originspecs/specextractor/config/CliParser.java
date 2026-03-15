@@ -25,7 +25,7 @@ public final class CliParser {
             Config config = Config.fromArgs(args);
             config.validate();
             return config;
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             log.error("Invalid arguments: {}", e.getMessage());
             log.error(USAGE);
             throw new CliException(e.getMessage());

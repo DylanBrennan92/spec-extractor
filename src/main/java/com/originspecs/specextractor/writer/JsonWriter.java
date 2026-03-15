@@ -15,7 +15,7 @@ import java.util.List;
  * Each record is serialised as a flat JSON object (header → value).
  */
 @Slf4j
-public class JsonWriter {
+public class JsonWriter implements SpecRecordWriter {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
             .enable(SerializationFeature.INDENT_OUTPUT);

@@ -1,6 +1,6 @@
 package com.originspecs.specextractor.service;
 
-import com.originspecs.specextractor.client.DeepLClient;
+import com.originspecs.specextractor.client.TranslationClient;
 import com.originspecs.specextractor.model.RowData;
 import com.originspecs.specextractor.model.SheetData;
 import com.originspecs.specextractor.model.TranslationRequest;
@@ -26,7 +26,7 @@ public class TranslationService {
     /** Values matching this pattern (ints, decimals, ranges, percentages) are kept as-is — no DeepL call. */
     private static final Pattern PURELY_NUMERIC = Pattern.compile("^[\\d\\s.,~\\-%]+$");
 
-    private final DeepLClient client;
+    private final TranslationClient client;
 
     private int lastRunBilledCharacters;
 
@@ -37,13 +37,8 @@ public class TranslationService {
         return lastRunBilledCharacters;
     }
 
-    /** Default constructor for production — client is created per translate call. */
-    public TranslationService() {
-        this.client = null;
-    }
-
-    /** Constructor for tests — use the provided client so no real API calls are made. */
-    public TranslationService(DeepLClient client) {
+    /** Constructor — client must be provided (injected at composition root). */
+    public TranslationService(TranslationClient client) {
         this.client = client;
     }
 
@@ -51,10 +46,9 @@ public class TranslationService {
      * Translates all non-blank cell values across all sheets.
      *
      * @param sheets List of SheetData with Japanese cell values
-     * @param apiKey DeepL API key
      * @return New list of SheetData with identical structure but English cell values
      */
-    public List<SheetData> translate(List<SheetData> sheets, String apiKey) {
+    public List<SheetData> translate(List<SheetData> sheets) {
         log.info("Starting translation for {} sheet(s)", sheets.size());
 
         List<CellPosition> positions = extractTexts(sheets);
@@ -74,7 +68,7 @@ public class TranslationService {
         } else {
             List<List<String>> batches = batch(textsToTranslate);
             log.info("Split into {} batch(es) of up to {} texts", batches.size(), DEEPL_BATCH_SIZE);
-            translatedTexts = sendBatchesWithUsageLogging(batches, apiKey);
+            translatedTexts = sendBatchesWithUsageLogging(batches);
         }
 
         return rebuildSheets(sheets, positions, translatedTexts);
@@ -128,10 +122,8 @@ public class TranslationService {
         return batches;
     }
 
-    private List<String> sendBatchesWithUsageLogging(List<List<String>> batches, String apiKey) {
-        DeepLClient clientToUse = this.client != null ? this.client : new DeepLClient(apiKey);
-
-        logUsageBefore(clientToUse);
+    private List<String> sendBatchesWithUsageLogging(List<List<String>> batches) {
+        logUsageBefore(client);
 
         List<String> allTranslated = new ArrayList<>();
         int totalBilledThisRun = 0;
@@ -146,7 +138,7 @@ public class TranslationService {
                     Constants.DEEPL_CUSTOM_INSTRUCTIONS,
                     Constants.DEEPL_CONTEXT,
                     true);
-            TranslationResponse response = clientToUse.translate(request);
+            TranslationResponse response = client.translate(request);
 
             if (response.billedCharacters() != null) {
                 totalBilledThisRun += response.billedCharacters();
@@ -163,11 +155,11 @@ public class TranslationService {
         }
 
         lastRunBilledCharacters = totalBilledThisRun;
-        logUsageAfter(clientToUse, totalBilledThisRun);
+        logUsageAfter(client, totalBilledThisRun);
         return allTranslated;
     }
 
-    private void logUsageBefore(DeepLClient client) {
+    private void logUsageBefore(TranslationClient client) {
         UsageResponse usage = client.getUsage();
         if (usage != null) {
             log.info("DeepL quota before translation: {} chars remaining (used: {}/{})",
@@ -175,7 +167,7 @@ public class TranslationService {
         }
     }
 
-    private void logUsageAfter(DeepLClient client, int totalBilledThisRun) {
+    private void logUsageAfter(TranslationClient client, int totalBilledThisRun) {
         UsageResponse usage = client.getUsage();
         if (usage != null) {
             log.info("DeepL quota after translation: {} chars remaining (used: {}/{})",

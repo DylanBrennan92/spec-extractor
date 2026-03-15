@@ -16,7 +16,7 @@ import java.util.Map;
  * Columns with blank headers and completely empty rows are skipped.
  */
 @Slf4j
-public class SpecProcessor {
+public class SpecProcessor implements SheetProcessor {
 
     /**
      * Processes all sheets and returns a combined flat list of records.
