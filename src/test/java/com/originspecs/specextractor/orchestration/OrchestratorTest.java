@@ -3,10 +3,10 @@ package com.originspecs.specextractor.orchestration;
 import com.originspecs.specextractor.config.Config;
 import com.originspecs.specextractor.model.SheetData;
 import com.originspecs.specextractor.model.SpecRecord;
-import com.originspecs.specextractor.processor.SpecProcessor;
-import com.originspecs.specextractor.reader.WorkBookReader;
+import com.originspecs.specextractor.processor.SheetProcessor;
+import com.originspecs.specextractor.reader.WorkbookReader;
 import com.originspecs.specextractor.service.TranslationService;
-import com.originspecs.specextractor.writer.JsonWriter;
+import com.originspecs.specextractor.writer.SpecRecordWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,16 +38,16 @@ class OrchestratorTest {
     private static final String API_KEY = "test-api-key";
 
     @Mock
-    private WorkBookReader reader;
+    private WorkbookReader reader;
 
     @Mock
     private TranslationService translationService;
 
     @Mock
-    private SpecProcessor processor;
+    private SheetProcessor processor;
 
     @Mock
-    private JsonWriter writer;
+    private SpecRecordWriter writer;
 
     private Orchestrator orchestrator;
     private Config config;
@@ -71,13 +71,13 @@ class OrchestratorTest {
         );
 
         when(reader.read(INPUT_PATH)).thenReturn(sheets);
-        when(translationService.translate(sheets, API_KEY)).thenReturn(translatedSheets);
+        when(translationService.translate(sheets)).thenReturn(translatedSheets);
         when(processor.process(translatedSheets)).thenReturn(records);
 
         orchestrator.execute(config);
 
         verify(reader).read(INPUT_PATH);
-        verify(translationService).translate(sheets, API_KEY);
+        verify(translationService).translate(sheets);
         verify(processor).process(translatedSheets);
         verify(writer).write(anyList(), eq(OUTPUT_PATH));
     }
@@ -91,7 +91,7 @@ class OrchestratorTest {
                 SheetData.empty("Translated", 0)
         );
         when(reader.read(INPUT_PATH)).thenReturn(originalSheets);
-        when(translationService.translate(originalSheets, API_KEY)).thenReturn(translatedSheets);
+        when(translationService.translate(originalSheets)).thenReturn(translatedSheets);
         when(processor.process(translatedSheets)).thenReturn(List.of());
 
         orchestrator.execute(config);
@@ -114,7 +114,7 @@ class OrchestratorTest {
     void execute_propagatesIOExceptionFromWriter() throws IOException {
         List<SheetData> sheets = List.of(SheetData.empty("S", 0));
         when(reader.read(INPUT_PATH)).thenReturn(sheets);
-        when(translationService.translate(sheets, API_KEY)).thenReturn(sheets);
+        when(translationService.translate(sheets)).thenReturn(sheets);
         when(processor.process(sheets)).thenReturn(List.of());
         doThrow(new IOException("write failed")).when(writer).write(anyList(), eq(OUTPUT_PATH));
 

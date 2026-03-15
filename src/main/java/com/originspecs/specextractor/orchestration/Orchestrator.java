@@ -1,13 +1,14 @@
 package com.originspecs.specextractor.orchestration;
 
+import com.originspecs.specextractor.client.DeepLClient;
 import com.originspecs.specextractor.config.Config;
 import com.originspecs.specextractor.model.SheetData;
 import com.originspecs.specextractor.model.SpecRecord;
 import com.originspecs.specextractor.processor.CommonNameCorrector;
-import com.originspecs.specextractor.processor.SpecProcessor;
-import com.originspecs.specextractor.reader.WorkBookReader;
+import com.originspecs.specextractor.processor.SheetProcessor;
+import com.originspecs.specextractor.reader.WorkbookReader;
 import com.originspecs.specextractor.service.TranslationService;
-import com.originspecs.specextractor.writer.JsonWriter;
+import com.originspecs.specextractor.writer.SpecRecordWriter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -21,28 +22,29 @@ import java.util.List;
 @Slf4j
 public class Orchestrator {
 
-    private final WorkBookReader reader;
+    private final WorkbookReader reader;
     private final TranslationService translationService;
-    private final SpecProcessor processor;
+    private final SheetProcessor processor;
     private final CommonNameCorrector commonNameCorrector;
-    private final JsonWriter writer;
+    private final SpecRecordWriter writer;
 
     /**
      * Default constructor: wires all components with their default implementations.
+     * TranslationService is created in {@link #execute} when the API key is available.
      */
     public Orchestrator() {
-        this.reader = new WorkBookReader();
-        this.translationService = new TranslationService();
-        this.processor = new SpecProcessor();
+        this.reader = new com.originspecs.specextractor.reader.WorkBookReader();
+        this.translationService = null;
+        this.processor = new com.originspecs.specextractor.processor.SpecProcessor();
         this.commonNameCorrector = new CommonNameCorrector();
-        this.writer = new JsonWriter();
+        this.writer = new com.originspecs.specextractor.writer.JsonWriter();
     }
 
     /**
      * Full constructor for testing — inject any implementation of each component.
      */
-    public Orchestrator(WorkBookReader reader, SpecProcessor processor,
-            CommonNameCorrector commonNameCorrector, JsonWriter writer,
+    public Orchestrator(WorkbookReader reader, SheetProcessor processor,
+            CommonNameCorrector commonNameCorrector, SpecRecordWriter writer,
             TranslationService translationService) {
         this.reader = reader;
         this.translationService = translationService;
@@ -61,8 +63,12 @@ public class Orchestrator {
         log.info("Starting spec extraction pipeline");
         log.info("Input: {} | Output: {}", config.inputFile(), config.outputFile());
 
+        TranslationService ts = translationService != null
+                ? translationService
+                : new TranslationService(new DeepLClient(config.deeplApiKey()));
+
         List<SheetData> sheets = read(config.inputFile());
-        List<SheetData> translatedSheets = translate(sheets, config.deeplApiKey());
+        List<SheetData> translatedSheets = ts.translate(sheets);
         List<SpecRecord> records = process(translatedSheets);
         records = commonNameCorrector.correct(records);
         write(records, config.outputFile());
@@ -76,12 +82,6 @@ public class Orchestrator {
     private List<SheetData> read(Path inputFile) throws IOException {
         log.debug("Reading workbook");
         return reader.read(inputFile);
-    }
-
-    // 2.0 Translate
-    private List<SheetData> translate(List<SheetData> sheets, String deeplApiKey) {
-        log.debug("Translating sheets");
-        return translationService.translate(sheets, deeplApiKey);
     }
 
     // 3.0 Process

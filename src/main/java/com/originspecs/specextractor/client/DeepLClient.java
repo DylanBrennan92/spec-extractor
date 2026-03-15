@@ -18,7 +18,7 @@ import java.net.http.HttpResponse;
  * Throws {@link DeepLApiException} on any non-200 response.
  */
 @Slf4j
-public class DeepLClient {
+public class DeepLClient implements TranslationClient {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 

@@ -3,28 +3,51 @@ package com.originspecs.specextractor.processor;
 import com.originspecs.specextractor.model.SpecRecord;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 /**
  * Post-processes SpecRecords to correct known DeepL mistranslations of Common Name
  * and strip footnote markers (e.g. "86 *2" → "86").
+ * Corrections are loaded from {@code common-name-corrections.properties}.
  */
 @Slf4j
 public class CommonNameCorrector {
 
     private static final String COMMON_NAME_HEADER = "Common Name";
+    private static final String CORRECTIONS_RESOURCE = "common-name-corrections.properties";
 
-    /** Known mistranslations: DeepL output → correct model name. */
-    private static final Map<String, String> MISTRANSLATIONS = Map.ofEntries(
-            Map.entry("I'm Ease", "Mira e:S"),
-            Map.entry("Here and there", "Mira Tocot"),
-            Map.entry("Vroom", "Boon"),
-            Map.entry("Extrail", "X-Trail"),
-            Map.entry("Randy", "Landy"),
-            Map.entry("Insights", "Insight")
-    );
+    private final Map<String, String> mistranslations;
+
+    public CommonNameCorrector() {
+        this.mistranslations = loadMistranslations();
+    }
+
+    /** Constructor for tests — inject custom corrections. */
+    CommonNameCorrector(Map<String, String> mistranslations) {
+        this.mistranslations = mistranslations != null ? mistranslations : Map.of();
+    }
+
+    private static Map<String, String> loadMistranslations() {
+        try (InputStream is = CommonNameCorrector.class.getResourceAsStream("/" + CORRECTIONS_RESOURCE)) {
+            if (is == null) {
+                log.warn("{} not found — no Common Name corrections applied", CORRECTIONS_RESOURCE);
+                return Map.of();
+            }
+            Properties props = new Properties();
+            props.load(is);
+            Map<String, String> result = new LinkedHashMap<>();
+            props.forEach((k, v) -> result.put(String.valueOf(k), String.valueOf(v)));
+            return Map.copyOf(result);
+        } catch (IOException e) {
+            log.warn("Failed to load {}: {} — no corrections applied", CORRECTIONS_RESOURCE, e.getMessage());
+            return Map.of();
+        }
+    }
 
     /**
      * Applies corrections to all records. Returns a new list; input records are not mutated.
@@ -55,7 +78,7 @@ public class CommonNameCorrector {
 
     private String correctCommonName(String value) {
         String stripped = stripFootnoteMarkers(value);
-        return MISTRANSLATIONS.getOrDefault(stripped, stripped);
+        return mistranslations.getOrDefault(stripped, stripped);
     }
 
     /** Removes trailing footnote markers like " *", " *2", " *3". */

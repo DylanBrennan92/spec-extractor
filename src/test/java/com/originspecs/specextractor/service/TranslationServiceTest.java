@@ -1,6 +1,6 @@
 package com.originspecs.specextractor.service;
 
-import com.originspecs.specextractor.client.DeepLClient;
+import com.originspecs.specextractor.client.TranslationClient;
 import com.originspecs.specextractor.model.RowData;
 import com.originspecs.specextractor.model.SheetData;
 import com.originspecs.specextractor.model.TranslationRequest;
@@ -30,7 +30,7 @@ import static org.mockito.Mockito.when;
 class TranslationServiceTest {
 
     @Mock
-    private DeepLClient mockClient;
+    private TranslationClient mockClient;
 
     private TranslationService translationService;
 
@@ -52,7 +52,7 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("Nissan", "Note", "Toyota", "Aqua"));
 
-        List<SheetData> result = translationService.translate(List.of(sheet), "fake-api-key");
+        List<SheetData> result = translationService.translate(List.of(sheet));
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).name()).isEqualTo("TestSheet");
@@ -72,7 +72,7 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("Hello", "World"));
 
-        translationService.translate(List.of(sheet), "fake-api-key");
+        translationService.translate(List.of(sheet));
 
         ArgumentCaptor<TranslationRequest> captor = ArgumentCaptor.forClass(TranslationRequest.class);
         verify(mockClient).translate(captor.capture());
@@ -96,7 +96,7 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("Only", "Three"));
 
-        List<SheetData> result = translationService.translate(List.of(sheet), "fake-api-key");
+        List<SheetData> result = translationService.translate(List.of(sheet));
 
         ArgumentCaptor<TranslationRequest> captor = ArgumentCaptor.forClass(TranslationRequest.class);
         verify(mockClient).translate(captor.capture());
@@ -125,7 +125,7 @@ class TranslationServiceTest {
                     return responseWithTranslations(translated.toArray(new String[0]));
                 });
 
-        List<SheetData> result = translationService.translate(List.of(sheet), "fake-api-key");
+        List<SheetData> result = translationService.translate(List.of(sheet));
 
         verify(mockClient, org.mockito.Mockito.times(2)).translate(any(TranslationRequest.class));
         assertThat(result.get(0).rows().get(0).cellValues().get(0)).isEqualTo("translated-text0");
@@ -139,7 +139,7 @@ class TranslationServiceTest {
                 List.of(List.of("", ""))
         );
 
-        List<SheetData> result = translationService.translate(List.of(sheet), "fake-api-key");
+        List<SheetData> result = translationService.translate(List.of(sheet));
 
         verify(mockClient, never()).translate(any(TranslationRequest.class));
         assertThat(result).hasSize(1);
@@ -155,7 +155,7 @@ class TranslationServiceTest {
                         List.of(new TranslationResponse.Translation("JA", "Hello", null)),
                         42));
 
-        translationService.translate(List.of(sheet), "fake-api-key");
+        translationService.translate(List.of(sheet));
 
         assertThat(translationService.getLastRunBilledCharacters()).isEqualTo(42);
     }
@@ -172,7 +172,7 @@ class TranslationServiceTest {
                         ),
                         null));
 
-        translationService.translate(List.of(sheet), "fake-api-key");
+        translationService.translate(List.of(sheet));
 
         assertThat(translationService.getLastRunBilledCharacters()).isEqualTo(22);
     }
@@ -183,7 +183,7 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("X"));
 
-        translationService.translate(List.of(sheet), "fake-api-key");
+        translationService.translate(List.of(sheet));
 
         verify(mockClient, org.mockito.Mockito.times(2)).getUsage();
     }
@@ -195,7 +195,7 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("A")); // only 1 translation for 2 positions
 
-        assertThatThrownBy(() -> translationService.translate(List.of(sheet), "fake-api-key"))
+        assertThatThrownBy(() -> translationService.translate(List.of(sheet)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("translatedTexts size (1) != positions size (2)");
     }
@@ -213,7 +213,7 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("Nissan", "Toyota"));
 
-        List<SheetData> result = translationService.translate(List.of(sheet), "fake-api-key");
+        List<SheetData> result = translationService.translate(List.of(sheet));
 
         ArgumentCaptor<TranslationRequest> captor = ArgumentCaptor.forClass(TranslationRequest.class);
         verify(mockClient).translate(captor.capture());
@@ -230,7 +230,7 @@ class TranslationServiceTest {
                 List.of(List.of("1190", "0.658"), List.of("25.0", "650~670"))
         );
 
-        List<SheetData> result = translationService.translate(List.of(sheet), "fake-api-key");
+        List<SheetData> result = translationService.translate(List.of(sheet));
 
         verify(mockClient, never()).translate(any(TranslationRequest.class));
         assertThat(result.get(0).rows().get(0).cellValues()).containsExactly("1190", "0.658");
@@ -247,7 +247,7 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("A", "B"));
 
-        List<SheetData> result = translationService.translate(List.of(sheet), "key");
+        List<SheetData> result = translationService.translate(List.of(sheet));
 
         assertThat(result.get(0).name()).isEqualTo(sheet.name());
         assertThat(result.get(0).index()).isEqualTo(sheet.index());
