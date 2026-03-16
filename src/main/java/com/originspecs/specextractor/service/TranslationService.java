@@ -28,14 +28,9 @@ public class TranslationService {
 
     private final TranslationClient client;
 
-    private int lastRunBilledCharacters;
-
     private record CellPosition(int sheetIndex, int rowIndex, int colIndex, String originalText) {}
 
-    /** Returns the total billed characters from the last translate run. */
-    public int getLastRunBilledCharacters() {
-        return lastRunBilledCharacters;
-    }
+    private record BatchResult(List<String> translatedTexts, int billedCharacters) {}
 
     /** Constructor — client must be provided (injected at composition root). */
     public TranslationService(TranslationClient client) {
@@ -46,9 +41,9 @@ public class TranslationService {
      * Translates all non-blank cell values across all sheets.
      *
      * @param sheets List of SheetData with Japanese cell values
-     * @return New list of SheetData with identical structure but English cell values
+     * @return TranslationResult containing the translated sheets and billed character count
      */
-    public List<SheetData> translate(List<SheetData> sheets) {
+    public TranslationResult translate(List<SheetData> sheets) {
         log.info("Starting translation for {} sheet(s)", sheets.size());
 
         List<CellPosition> positions = extractTexts(sheets);
@@ -57,21 +52,24 @@ public class TranslationService {
         log.info("Extracted {} non-blank cell(s); {} to translate, {} skipped (purely numeric)",
                 totalNonBlank, positions.size(), skipped);
 
-        List<String> textsToTranslate = positions.stream()
-                .map(CellPosition::originalText)
-                .toList();
-
         List<String> translatedTexts;
+        int billedCharacters;
         if (positions.isEmpty()) {
             log.info("No cells require translation — skipping DeepL API");
             translatedTexts = List.of();
+            billedCharacters = 0;
         } else {
-            List<List<String>> batches = batch(textsToTranslate);
+            List<List<String>> batches = batch(positions.stream()
+                    .map(CellPosition::originalText)
+                    .toList());
             log.info("Split into {} batch(es) of up to {} texts", batches.size(), DEEPL_BATCH_SIZE);
-            translatedTexts = sendBatchesWithUsageLogging(batches);
+            var result = sendBatchesWithUsageLogging(batches);
+            translatedTexts = result.translatedTexts();
+            billedCharacters = result.billedCharacters();
         }
 
-        return rebuildSheets(sheets, positions, translatedTexts);
+        List<SheetData> translatedSheets = rebuildSheets(sheets, positions, translatedTexts);
+        return new TranslationResult(translatedSheets, billedCharacters);
     }
 
     private List<CellPosition> extractTexts(List<SheetData> sheets) {
@@ -122,7 +120,7 @@ public class TranslationService {
         return batches;
     }
 
-    private List<String> sendBatchesWithUsageLogging(List<List<String>> batches) {
+    private BatchResult sendBatchesWithUsageLogging(List<List<String>> batches) {
         logUsageBefore(client);
 
         List<String> allTranslated = new ArrayList<>();
@@ -154,25 +152,20 @@ public class TranslationService {
                     .forEach(allTranslated::add);
         }
 
-        lastRunBilledCharacters = totalBilledThisRun;
         logUsageAfter(client, totalBilledThisRun);
-        return allTranslated;
+        return new BatchResult(allTranslated, totalBilledThisRun);
     }
 
     private void logUsageBefore(TranslationClient client) {
-        UsageResponse usage = client.getUsage();
-        if (usage != null) {
-            log.info("DeepL quota before translation: {} chars remaining (used: {}/{})",
-                    usage.charsRemaining(), usage.characterCount(), usage.characterLimit());
-        }
+        client.getUsage().ifPresent(usage ->
+                log.info("DeepL quota before translation: {} chars remaining (used: {}/{})",
+                        usage.charsRemaining(), usage.characterCount(), usage.characterLimit()));
     }
 
     private void logUsageAfter(TranslationClient client, int totalBilledThisRun) {
-        UsageResponse usage = client.getUsage();
-        if (usage != null) {
-            log.info("DeepL quota after translation: {} chars remaining (used: {}/{})",
-                    usage.charsRemaining(), usage.characterCount(), usage.characterLimit());
-        }
+        client.getUsage().ifPresent(usage ->
+                log.info("DeepL quota after translation: {} chars remaining (used: {}/{})",
+                        usage.charsRemaining(), usage.characterCount(), usage.characterLimit()));
         log.info("Chars converted this run: {}", totalBilledThisRun);
     }
 

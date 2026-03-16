@@ -1,10 +1,7 @@
 package com.originspecs.specextractor.config;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.nio.file.Path;
 
-@Slf4j
 public record Config(
         Path inputFile,
         Path outputFile,

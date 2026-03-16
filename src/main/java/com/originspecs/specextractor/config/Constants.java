@@ -22,5 +22,8 @@ public final class Constants {
     public static final String DEEPL_CONTEXT =
             "Vehicle specification spreadsheet. Translate each cell value literally without adding explanations.";
 
+    /** Header name for the Common Name column in spec records. */
+    public static final String COMMON_NAME_HEADER = "Common Name";
+
     private Constants() {}
 }

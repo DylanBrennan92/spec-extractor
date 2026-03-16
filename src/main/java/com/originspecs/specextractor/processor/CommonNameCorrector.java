@@ -1,5 +1,6 @@
 package com.originspecs.specextractor.processor;
 
+import com.originspecs.specextractor.config.Constants;
 import com.originspecs.specextractor.model.SpecRecord;
 import lombok.extern.slf4j.Slf4j;
 
@@ -18,13 +19,18 @@ import java.util.Properties;
 @Slf4j
 public class CommonNameCorrector {
 
-    private static final String COMMON_NAME_HEADER = "Common Name";
     private static final String CORRECTIONS_RESOURCE = "common-name-corrections.properties";
 
     private final Map<String, String> mistranslations;
 
-    public CommonNameCorrector() {
-        this.mistranslations = loadMistranslations();
+    /**
+     * Creates a CommonNameCorrector by loading corrections from the classpath.
+     * Use this instead of the constructor to avoid partially initialized objects if loading fails.
+     *
+     * @throws CommonNameCorrectionsLoadException if the properties file exists but cannot be read
+     */
+    public static CommonNameCorrector create() {
+        return new CommonNameCorrector(loadMistranslations());
     }
 
     /** Constructor for tests — inject custom corrections. */
@@ -46,10 +52,8 @@ public class CommonNameCorrector {
             props.forEach((k, v) -> result.put(String.valueOf(k), String.valueOf(v)));
             return Map.copyOf(result);
         } catch (IOException e) {
-            if (log.isWarnEnabled()) {
-                log.warn("Failed to load {}: {} — no corrections applied", CORRECTIONS_RESOURCE, e.getMessage());
-            }
-            return Map.of();
+            throw new CommonNameCorrectionsLoadException(
+                    "Failed to load " + CORRECTIONS_RESOURCE + ": " + e.getMessage(), e);
         }
     }
 
@@ -63,8 +67,8 @@ public class CommonNameCorrector {
     }
 
     private SpecRecord correctRecord(SpecRecord record) {
-        String commonName = record.get(COMMON_NAME_HEADER);
-        if (commonName == null || commonName.isEmpty()) {
+        String commonName = record.get(Constants.COMMON_NAME_HEADER);
+        if (commonName.isEmpty()) {
             return record;
         }
 
@@ -78,7 +82,7 @@ public class CommonNameCorrector {
         }
 
         Map<String, String> newFields = new LinkedHashMap<>(record.fields());
-        newFields.put(COMMON_NAME_HEADER, corrected);
+        newFields.put(Constants.COMMON_NAME_HEADER, corrected);
         return new SpecRecord(newFields);
     }
 

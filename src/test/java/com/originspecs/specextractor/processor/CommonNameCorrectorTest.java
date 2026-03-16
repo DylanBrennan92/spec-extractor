@@ -1,5 +1,6 @@
 package com.originspecs.specextractor.processor;
 
+import com.originspecs.specextractor.config.Constants;
 import com.originspecs.specextractor.model.SpecRecord;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +24,7 @@ class CommonNameCorrectorTest {
     private final CommonNameCorrector corrector = new CommonNameCorrector(TEST_MISTRANSLATIONS);
 
     @Test
-    void correct_mistranslations_replaced() {
+    void shouldReplaceMistranslations_whenCommonNameMatchesCorrection() {
         assertCorrected("I'm Ease", "Mira e:S");
         assertCorrected("Here and there", "Mira Tocot");
         assertCorrected("Vroom", "Boon");
@@ -33,51 +34,51 @@ class CommonNameCorrectorTest {
     }
 
     @Test
-    void correct_footnoteMarkers_stripped() {
+    void shouldStripFootnoteMarkers_whenCommonNameHasTrailingAsterisk() {
         assertCorrected("86 *2", "86");
         assertCorrected("Passo *", "Passo");
         assertCorrected("Rise *", "Rise");
     }
 
     @Test
-    void correct_footnoteThenMistranslation_bothApplied() {
+    void shouldApplyBothFootnoteStripAndMistranslationCorrection_whenCommonNameHasBoth() {
         assertCorrected("Insights *", "Insight");
     }
 
     @Test
-    void correct_unchangedValues_preserved() {
+    void shouldPreserveValue_whenNoCorrectionExists() {
         assertCorrected("RX450h", "RX450h");
         assertCorrected("Note", "Note");
         assertCorrected("Corolla", "Corolla");
     }
 
     @Test
-    void correct_noCommonName_unchanged() {
+    void shouldLeaveRecordUnchanged_whenCommonNameHeaderAbsent() {
         SpecRecord record = new SpecRecord(Map.of("Car Name", "Toyota", "Engine", "2ZR"));
         List<SpecRecord> result = corrector.correct(List.of(record));
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).get("Common Name")).isEmpty();
+        assertThat(result.get(0).get(Constants.COMMON_NAME_HEADER)).isEmpty();
         assertThat(result.get(0).get("Car Name")).isEqualTo("Toyota");
     }
 
     @Test
-    void correct_emptyCommonName_unchanged() {
+    void shouldLeaveRecordUnchanged_whenCommonNameEmpty() {
         SpecRecord record = recordWithCommonName("");
         List<SpecRecord> result = corrector.correct(List.of(record));
-        assertThat(result.get(0).get("Common Name")).isEmpty();
+        assertThat(result.get(0).get(Constants.COMMON_NAME_HEADER)).isEmpty();
     }
 
     private void assertCorrected(String input, String expected) {
         SpecRecord record = recordWithCommonName(input);
         List<SpecRecord> result = corrector.correct(List.of(record));
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).get("Common Name")).isEqualTo(expected);
+        assertThat(result.get(0).get(Constants.COMMON_NAME_HEADER)).isEqualTo(expected);
     }
 
     private static SpecRecord recordWithCommonName(String value) {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("Car Name", "Brand");
-        fields.put("Common Name", value);
+        fields.put(Constants.COMMON_NAME_HEADER, value);
         fields.put("Engine", "KF");
         return new SpecRecord(fields);
     }

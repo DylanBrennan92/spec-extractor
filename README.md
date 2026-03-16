@@ -29,7 +29,7 @@ English column header names.
 ### Internal pipeline stages
 
 ```
-Read (WorkBookReader)
+Read (WorkbookReaderImpl)
   → Translate (TranslationService + DeepLClient)
   → Process (SpecProcessor)
   → Write (JsonWriter)
@@ -37,7 +37,7 @@ Read (WorkBookReader)
 
 | Stage | Class | What it does |
 |---|---|---|
-| Read | `WorkBookReader` | Parses the .xls workbook into `SheetData` records |
+| Read | `WorkbookReaderImpl` | Parses the .xls workbook into `SheetData` records |
 | Translate | `TranslationService` | Batches non-blank cells (≤ 50 per request) and sends them to DeepL |
 | Process | `SpecProcessor` | Maps each translated row to a `SpecRecord` (header → value) |
 | Write | `JsonWriter` | Serialises the record list to a pretty-printed JSON file |
