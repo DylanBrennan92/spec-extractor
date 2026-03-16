@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Immutable domain object representing one extracted vehicle specification record.
@@ -23,6 +24,12 @@ public record SpecRecord(Map<String, String> fields) {
     /** Returns the value for the given header, or an empty string if absent. */
     public String get(String header) {
         return fields.getOrDefault(header, "");
+    }
+
+    /** Returns the value for the given header as Optional; empty if absent or blank. */
+    public Optional<String> getOptional(String header) {
+        String value = fields.get(header);
+        return value == null || value.isBlank() ? Optional.empty() : Optional.of(value);
     }
 
     @JsonValue

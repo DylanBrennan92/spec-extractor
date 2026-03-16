@@ -7,10 +7,13 @@ import com.originspecs.specextractor.model.TranslationResponse;
 import com.originspecs.specextractor.model.UsageResponse;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+
+import java.util.Optional;
 
 /**
  * HTTP client responsible for communicating with the DeepL translation API.
@@ -69,7 +72,10 @@ public class DeepLClient implements TranslationClient {
 
         } catch (DeepLApiException e) {
             throw e;
-        } catch (Exception e) {
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new DeepLApiException("DeepL API request interrupted: " + e.getMessage(), -1, "");
+        } catch (IOException e) {
             throw new DeepLApiException("Failed to contact DeepL API: " + e.getMessage(), -1, "");
         }
     }
@@ -77,9 +83,10 @@ public class DeepLClient implements TranslationClient {
     /**
      * Fetches current usage and quota from DeepL.
      *
-     * @return Usage response with character_count and character_limit, or null on failure
+     * @return Optional containing the usage response if the API call succeeded; empty if the
+     *         request failed, returned non-200, or was interrupted
      */
-    public UsageResponse getUsage() {
+    public Optional<UsageResponse> getUsage() {
         try {
             HttpRequest httpRequest = HttpRequest.newBuilder()
                     .uri(URI.create(Constants.DEEPL_USAGE_URL))
@@ -93,17 +100,17 @@ public class DeepLClient implements TranslationClient {
 
             if (httpResponse.statusCode() != 200) {
                 log.warn("DeepL usage API returned status {}", httpResponse.statusCode());
-                return null;
+                return Optional.empty();
             }
 
-            return OBJECT_MAPPER.readValue(httpResponse.body(), UsageResponse.class);
+            return Optional.of(OBJECT_MAPPER.readValue(httpResponse.body(), UsageResponse.class));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.warn("Could not fetch DeepL usage: interrupted");
-            return null;
-        } catch (Exception e) {
+            return Optional.empty();
+        } catch (IOException e) {
             log.warn("Could not fetch DeepL usage: {}", e.getMessage());
-            return null;
+            return Optional.empty();
         }
     }
 }

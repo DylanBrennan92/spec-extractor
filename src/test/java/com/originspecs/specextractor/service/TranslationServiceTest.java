@@ -14,10 +14,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +39,7 @@ class TranslationServiceTest {
     @BeforeEach
     void setUp() {
         translationService = new TranslationService(mockClient);
+        lenient().when(mockClient.getUsage()).thenReturn(Optional.empty());
     }
 
     @Test
@@ -52,14 +55,14 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("Nissan", "Note", "Toyota", "Aqua"));
 
-        List<SheetData> result = translationService.translate(List.of(sheet));
+        TranslationResult result = translationService.translate(List.of(sheet));
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).name()).isEqualTo("TestSheet");
-        assertThat(result.get(0).headers()).containsExactly("Car Name", "Common Name");
-        assertThat(result.get(0).rows()).hasSize(2);
-        assertThat(result.get(0).rows().get(0).cellValues()).containsExactly("Nissan", "Note");
-        assertThat(result.get(0).rows().get(1).cellValues()).containsExactly("Toyota", "Aqua");
+        assertThat(result.sheets()).hasSize(1);
+        assertThat(result.sheets().get(0).name()).isEqualTo("TestSheet");
+        assertThat(result.sheets().get(0).headers()).containsExactly("Car Name", "Common Name");
+        assertThat(result.sheets().get(0).rows()).hasSize(2);
+        assertThat(result.sheets().get(0).rows().get(0).cellValues()).containsExactly("Nissan", "Note");
+        assertThat(result.sheets().get(0).rows().get(1).cellValues()).containsExactly("Toyota", "Aqua");
     }
 
     @Test
@@ -96,13 +99,13 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("Only", "Three"));
 
-        List<SheetData> result = translationService.translate(List.of(sheet));
+        TranslationResult result = translationService.translate(List.of(sheet));
 
         ArgumentCaptor<TranslationRequest> captor = ArgumentCaptor.forClass(TranslationRequest.class);
         verify(mockClient).translate(captor.capture());
         assertThat(captor.getValue().text()).containsExactly("only", "three");
 
-        assertThat(result.get(0).rows().get(0).cellValues()).containsExactly("Only", "", "Three");
+        assertThat(result.sheets().get(0).rows().get(0).cellValues()).containsExactly("Only", "", "Three");
     }
 
     @Test
@@ -125,11 +128,11 @@ class TranslationServiceTest {
                     return responseWithTranslations(translated.toArray(new String[0]));
                 });
 
-        List<SheetData> result = translationService.translate(List.of(sheet));
+        TranslationResult result = translationService.translate(List.of(sheet));
 
         verify(mockClient, org.mockito.Mockito.times(2)).translate(any(TranslationRequest.class));
-        assertThat(result.get(0).rows().get(0).cellValues().get(0)).isEqualTo("translated-text0");
-        assertThat(result.get(0).rows().get(0).cellValues().get(batchSize)).isEqualTo("translated-text" + batchSize);
+        assertThat(result.sheets().get(0).rows().get(0).cellValues().get(0)).isEqualTo("translated-text0");
+        assertThat(result.sheets().get(0).rows().get(0).cellValues().get(batchSize)).isEqualTo("translated-text" + batchSize);
     }
 
     @Test
@@ -139,11 +142,11 @@ class TranslationServiceTest {
                 List.of(List.of("", ""))
         );
 
-        List<SheetData> result = translationService.translate(List.of(sheet));
+        TranslationResult result = translationService.translate(List.of(sheet));
 
         verify(mockClient, never()).translate(any(TranslationRequest.class));
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).rows().get(0).cellValues()).containsExactly("", "");
+        assertThat(result.sheets()).hasSize(1);
+        assertThat(result.sheets().get(0).rows().get(0).cellValues()).containsExactly("", "");
     }
 
     @Test
@@ -155,9 +158,9 @@ class TranslationServiceTest {
                         List.of(new TranslationResponse.Translation("JA", "Hello", null)),
                         42));
 
-        translationService.translate(List.of(sheet));
+        TranslationResult result = translationService.translate(List.of(sheet));
 
-        assertThat(translationService.getLastRunBilledCharacters()).isEqualTo(42);
+        assertThat(result.billedCharacters()).isEqualTo(42);
     }
 
     @Test
@@ -172,9 +175,9 @@ class TranslationServiceTest {
                         ),
                         null));
 
-        translationService.translate(List.of(sheet));
+        TranslationResult result = translationService.translate(List.of(sheet));
 
-        assertThat(translationService.getLastRunBilledCharacters()).isEqualTo(22);
+        assertThat(result.billedCharacters()).isEqualTo(22);
     }
 
     @Test
@@ -213,14 +216,14 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("Nissan", "Toyota"));
 
-        List<SheetData> result = translationService.translate(List.of(sheet));
+        TranslationResult result = translationService.translate(List.of(sheet));
 
         ArgumentCaptor<TranslationRequest> captor = ArgumentCaptor.forClass(TranslationRequest.class);
         verify(mockClient).translate(captor.capture());
         assertThat(captor.getValue().text()).containsExactly("ニッサン", "トヨタ");
 
-        assertThat(result.get(0).rows().get(0).cellValues()).containsExactly("Nissan", "1190", "1.198");
-        assertThat(result.get(0).rows().get(1).cellValues()).containsExactly("Toyota", "650~670", "0.658");
+        assertThat(result.sheets().get(0).rows().get(0).cellValues()).containsExactly("Nissan", "1190", "1.198");
+        assertThat(result.sheets().get(0).rows().get(1).cellValues()).containsExactly("Toyota", "650~670", "0.658");
     }
 
     @Test
@@ -230,11 +233,11 @@ class TranslationServiceTest {
                 List.of(List.of("1190", "0.658"), List.of("25.0", "650~670"))
         );
 
-        List<SheetData> result = translationService.translate(List.of(sheet));
+        TranslationResult result = translationService.translate(List.of(sheet));
 
         verify(mockClient, never()).translate(any(TranslationRequest.class));
-        assertThat(result.get(0).rows().get(0).cellValues()).containsExactly("1190", "0.658");
-        assertThat(result.get(0).rows().get(1).cellValues()).containsExactly("25.0", "650~670");
+        assertThat(result.sheets().get(0).rows().get(0).cellValues()).containsExactly("1190", "0.658");
+        assertThat(result.sheets().get(0).rows().get(1).cellValues()).containsExactly("25.0", "650~670");
     }
 
     @Test
@@ -247,11 +250,11 @@ class TranslationServiceTest {
         when(mockClient.translate(any(TranslationRequest.class)))
                 .thenReturn(responseWithTranslations("A", "B"));
 
-        List<SheetData> result = translationService.translate(List.of(sheet));
+        TranslationResult result = translationService.translate(List.of(sheet));
 
-        assertThat(result.get(0).name()).isEqualTo(sheet.name());
-        assertThat(result.get(0).index()).isEqualTo(sheet.index());
-        assertThat(result.get(0).headers()).isEqualTo(sheet.headers());
+        assertThat(result.sheets().get(0).name()).isEqualTo(sheet.name());
+        assertThat(result.sheets().get(0).index()).isEqualTo(sheet.index());
+        assertThat(result.sheets().get(0).headers()).isEqualTo(sheet.headers());
     }
 
     private static TranslationResponse responseWithTranslations(String... texts) {

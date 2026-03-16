@@ -23,9 +23,9 @@ import java.util.List;
  * No header detection, merged cell expansion, or column filtering is performed here.
  */
 @Slf4j
-public class WorkBookReader implements WorkbookReader {
+public class WorkbookReaderImpl implements WorkbookReader {
 
-    private final DataFormatter formatter = new DataFormatter();
+    private static final DataFormatter FORMATTER = new DataFormatter();
 
     /**
      * Reads all sheets from the given .xls file.
@@ -92,11 +92,11 @@ public class WorkBookReader implements WorkbookReader {
      */
     private String evaluateCell(Cell cell, FormulaEvaluator evaluator) {
         try {
-            return formatter.formatCellValue(cell, evaluator).strip();
+            return FORMATTER.formatCellValue(cell, evaluator).strip();
         } catch (Exception e) {
             log.debug("Formula evaluation failed for cell [{},{}]: {} — using cached value",
                     cell.getRowIndex(), cell.getColumnIndex(), e.getMessage());
-            return formatter.formatCellValue(cell).strip();
+            return FORMATTER.formatCellValue(cell).strip();
         }
     }
 }

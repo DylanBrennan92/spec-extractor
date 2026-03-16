@@ -1,6 +1,5 @@
 package com.originspecs.specextractor.orchestration;
 
-import com.originspecs.specextractor.client.DeepLClient;
 import com.originspecs.specextractor.config.Config;
 import com.originspecs.specextractor.model.SheetData;
 import com.originspecs.specextractor.model.SpecRecord;
@@ -17,7 +16,7 @@ import java.util.List;
 
 /**
  * Orchestrates the complete spec extraction pipeline: read → translate → process → write.
- * Wires all components together. Contains no business logic.
+ * All dependencies must be injected via constructor. Contains no business logic.
  */
 @Slf4j
 public class Orchestrator {
@@ -29,27 +28,15 @@ public class Orchestrator {
     private final SpecRecordWriter writer;
 
     /**
-     * Default constructor: wires all components with their default implementations.
-     * TranslationService is created in {@link #execute} when the API key is available.
+     * Constructor — all dependencies must be provided (injected at composition root).
      */
-    public Orchestrator() {
-        this.reader = new com.originspecs.specextractor.reader.WorkBookReader();
-        this.translationService = null;
-        this.processor = new com.originspecs.specextractor.processor.SpecProcessor();
-        this.commonNameCorrector = new CommonNameCorrector();
-        this.writer = new com.originspecs.specextractor.writer.JsonWriter();
-    }
-
-    /**
-     * Full constructor for testing — inject any implementation of each component.
-     */
-    public Orchestrator(WorkbookReader reader, SheetProcessor processor,
-            CommonNameCorrector commonNameCorrector, SpecRecordWriter writer,
-            TranslationService translationService) {
+    public Orchestrator(WorkbookReader reader, TranslationService translationService,
+            SheetProcessor processor, CommonNameCorrector commonNameCorrector,
+            SpecRecordWriter writer) {
         this.reader = reader;
         this.translationService = translationService;
         this.processor = processor;
-        this.commonNameCorrector = commonNameCorrector != null ? commonNameCorrector : new CommonNameCorrector();
+        this.commonNameCorrector = commonNameCorrector;
         this.writer = writer;
     }
 
@@ -63,13 +50,9 @@ public class Orchestrator {
         log.info("Starting spec extraction pipeline");
         log.info("Input: {} | Output: {}", config.inputFile(), config.outputFile());
 
-        TranslationService ts = translationService != null
-                ? translationService
-                : new TranslationService(new DeepLClient(config.deeplApiKey()));
-
         List<SheetData> sheets = read(config.inputFile());
-        List<SheetData> translatedSheets = ts.translate(sheets);
-        List<SpecRecord> records = process(translatedSheets);
+        var translationResult = translationService.translate(sheets);
+        List<SpecRecord> records = process(translationResult.sheets());
         records = commonNameCorrector.correct(records);
         write(records, config.outputFile());
 

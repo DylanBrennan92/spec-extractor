@@ -3,6 +3,7 @@ package com.originspecs.specextractor.orchestration;
 import com.originspecs.specextractor.config.Config;
 import com.originspecs.specextractor.model.SheetData;
 import com.originspecs.specextractor.model.SpecRecord;
+import com.originspecs.specextractor.processor.CommonNameCorrector;
 import com.originspecs.specextractor.processor.SheetProcessor;
 import com.originspecs.specextractor.reader.WorkbookReader;
 import com.originspecs.specextractor.service.TranslationService;
@@ -23,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,6 +49,9 @@ class OrchestratorTest {
     private SheetProcessor processor;
 
     @Mock
+    private CommonNameCorrector commonNameCorrector;
+
+    @Mock
     private SpecRecordWriter writer;
 
     private Orchestrator orchestrator;
@@ -54,8 +59,9 @@ class OrchestratorTest {
 
     @BeforeEach
     void setUp() {
-        orchestrator = new Orchestrator(reader, processor, null, writer, translationService);
+        orchestrator = new Orchestrator(reader, translationService, processor, commonNameCorrector, writer);
         config = new Config(INPUT_PATH, OUTPUT_PATH, API_KEY);
+        lenient().when(commonNameCorrector.correct(anyList())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
@@ -71,7 +77,7 @@ class OrchestratorTest {
         );
 
         when(reader.read(INPUT_PATH)).thenReturn(sheets);
-        when(translationService.translate(sheets)).thenReturn(translatedSheets);
+        when(translationService.translate(sheets)).thenReturn(new com.originspecs.specextractor.service.TranslationResult(translatedSheets, 0));
         when(processor.process(translatedSheets)).thenReturn(records);
 
         orchestrator.execute(config);
@@ -79,6 +85,7 @@ class OrchestratorTest {
         verify(reader).read(INPUT_PATH);
         verify(translationService).translate(sheets);
         verify(processor).process(translatedSheets);
+        verify(commonNameCorrector).correct(records);
         verify(writer).write(anyList(), eq(OUTPUT_PATH));
     }
 
@@ -91,7 +98,7 @@ class OrchestratorTest {
                 SheetData.empty("Translated", 0)
         );
         when(reader.read(INPUT_PATH)).thenReturn(originalSheets);
-        when(translationService.translate(originalSheets)).thenReturn(translatedSheets);
+        when(translationService.translate(originalSheets)).thenReturn(new com.originspecs.specextractor.service.TranslationResult(translatedSheets, 0));
         when(processor.process(translatedSheets)).thenReturn(List.of());
 
         orchestrator.execute(config);
@@ -114,7 +121,7 @@ class OrchestratorTest {
     void execute_propagatesIOExceptionFromWriter() throws IOException {
         List<SheetData> sheets = List.of(SheetData.empty("S", 0));
         when(reader.read(INPUT_PATH)).thenReturn(sheets);
-        when(translationService.translate(sheets)).thenReturn(sheets);
+        when(translationService.translate(sheets)).thenReturn(new com.originspecs.specextractor.service.TranslationResult(sheets, 0));
         when(processor.process(sheets)).thenReturn(List.of());
         doThrow(new IOException("write failed")).when(writer).write(anyList(), eq(OUTPUT_PATH));
 
