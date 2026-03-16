@@ -33,7 +33,7 @@ public class Main {
         WorkbookReader reader = new WorkbookReaderImpl();
         TranslationService translationService = new TranslationService(new DeepLClient(config.deeplApiKey()));
         var processor = new SpecProcessor();
-        var commonNameCorrector = new CommonNameCorrector();
+        var commonNameCorrector = CommonNameCorrector.create();
         var writer = new JsonWriter();
         return new Orchestrator(reader, translationService, processor, commonNameCorrector, writer);
     }

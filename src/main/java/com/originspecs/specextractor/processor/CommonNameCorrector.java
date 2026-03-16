@@ -23,8 +23,14 @@ public class CommonNameCorrector {
 
     private final Map<String, String> mistranslations;
 
-    public CommonNameCorrector() {
-        this.mistranslations = loadMistranslations();
+    /**
+     * Creates a CommonNameCorrector by loading corrections from the classpath.
+     * Use this instead of the constructor to avoid partially initialized objects if loading fails.
+     *
+     * @throws CommonNameCorrectionsLoadException if the properties file exists but cannot be read
+     */
+    public static CommonNameCorrector create() {
+        return new CommonNameCorrector(loadMistranslations());
     }
 
     /** Constructor for tests — inject custom corrections. */
