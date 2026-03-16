@@ -74,9 +74,9 @@ public class DeepLClient implements TranslationClient {
             throw e;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new DeepLApiException("DeepL API request interrupted: " + e.getMessage(), -1, "");
+            throw new DeepLApiException("DeepL API request interrupted: " + e.getMessage(), -1, "", e);
         } catch (IOException e) {
-            throw new DeepLApiException("Failed to contact DeepL API: " + e.getMessage(), -1, "");
+            throw new DeepLApiException("Failed to contact DeepL API: " + e.getMessage(), -1, "", e);
         }
     }
 

@@ -34,7 +34,7 @@ public class SpecProcessor implements SheetProcessor {
         }
 
         log.info("Total records extracted: {}", records.size());
-        return records;
+        return List.copyOf(records);
     }
 
     private List<SpecRecord> processSheet(SheetData sheet) {

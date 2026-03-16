@@ -4,7 +4,12 @@ import com.originspecs.specextractor.model.RowData;
 import com.originspecs.specextractor.model.SheetData;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.FormulaEvaluator;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,7 +54,7 @@ public class WorkbookReaderImpl implements WorkbookReader {
             }
 
             log.info("Read {} sheet(s) from '{}'", sheets.size(), inputPath.getFileName());
-            return sheets;
+            return List.copyOf(sheets);
         }
     }
 
