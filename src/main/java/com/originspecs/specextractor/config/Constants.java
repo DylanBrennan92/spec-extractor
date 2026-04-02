@@ -25,5 +25,14 @@ public final class Constants {
     /** Header name for the Common Name column in spec records. */
     public static final String COMMON_NAME_HEADER = "Common Name";
 
+    /**
+     * JSON property for the ministry workbook lineage id (same UUID minted for DataPrep
+     * {@code --source-artifact-id}; original file is {@code local-data/artifacts/{id}.{ext}}).
+     */
+    public static final String SOURCE_ARTIFACT_ID_JSON_KEY = "sourceArtifactId";
+
+    /** CLI flag; must match DataPrep for the same run pipeline. */
+    public static final String CLI_SOURCE_ARTIFACT_ID_FLAG = "--source-artifact-id";
+
     private Constants() {}
 }

@@ -2,6 +2,7 @@ package com.originspecs.specextractor.orchestration;
 
 import com.originspecs.specextractor.config.Config;
 import com.originspecs.specextractor.model.SheetData;
+import com.originspecs.specextractor.model.SourceArtifactId;
 import com.originspecs.specextractor.model.SpecRecord;
 import com.originspecs.specextractor.processor.CommonNameCorrector;
 import com.originspecs.specextractor.processor.SheetProcessor;
@@ -48,11 +49,14 @@ public class Orchestrator {
      */
     public void execute(Config config) throws IOException {
         log.info("Starting spec extraction pipeline");
-        log.info("Input: {} | Output: {}", config.inputFile(), config.outputFile());
+        log.info("Input: {} | Output: {} | Source artifact id: {}",
+                config.inputFile(),
+                config.outputFile(),
+                config.sourceArtifactLineage().map(id -> id.value()).orElse("(none)"));
 
         List<SheetData> sheets = read(config.inputFile());
         var translationResult = translationService.translate(sheets);
-        List<SpecRecord> records = process(translationResult.sheets());
+        List<SpecRecord> records = process(translationResult.sheets(), config.sourceArtifactId());
         records = commonNameCorrector.correct(records);
         write(records, config.outputFile());
 
@@ -68,9 +72,9 @@ public class Orchestrator {
     }
 
     // 3.0 Process
-    private List<SpecRecord> process(List<SheetData> sheets) {
+    private List<SpecRecord> process(List<SheetData> sheets, SourceArtifactId sourceArtifactId) {
         log.debug("Processing sheets");
-        return processor.process(sheets);
+        return processor.process(sheets, sourceArtifactId);
     }
 
     // 4.0 Write

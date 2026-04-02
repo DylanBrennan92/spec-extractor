@@ -1,35 +1,32 @@
 package com.originspecs.specextractor.config;
 
-import java.nio.file.Path;
+import com.originspecs.specextractor.model.SourceArtifactId;
 
+import java.nio.file.Path;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Immutable paths and options for one extraction run.
+ * Built via {@link ConfigParser#parse(String[])} and checked with {@link ConfigValidator#validate(Config)}.
+ *
+ * @param sourceArtifactId {@code null} when {@code --source-artifact-id} was not passed.
+ */
 public record Config(
         Path inputFile,
         Path outputFile,
-        String deeplApiKey
+        String deeplApiKey,
+        SourceArtifactId sourceArtifactId
 ) {
-    public static Config fromArgs(String[] args) {
-        if (args.length != 1) {
-            throw new IllegalArgumentException("Exactly 1 argument required: <inputFile.xls>");
-        }
 
-        Path inputFile = Path.of(args[0]);
-        return new Config(inputFile, OutputNamer.derive(inputFile), resolveDeeplApiKey());
+    public Config {
+        Objects.requireNonNull(inputFile, "inputFile");
+        Objects.requireNonNull(outputFile, "outputFile");
+        Objects.requireNonNull(deeplApiKey, "deeplApiKey");
     }
 
-    public void validate() {
-        if (!inputFile.toFile().exists()) {
-            throw new IllegalArgumentException("Input file does not exist: " + inputFile.toAbsolutePath());
-        }
-    }
-
-    private static String resolveDeeplApiKey() {
-        String key = System.getenv("DEEPL_API_KEY");
-        if (key == null || key.isBlank()) {
-            throw new IllegalStateException(
-                    "DEEPL_API_KEY environment variable is not set. " +
-                    "Export it before running: export DEEPL_API_KEY=your-key"
-            );
-        }
-        return key;
+    /** Absent when no {@code --source-artifact-id} was supplied (preferred over nullable accessor at call sites). */
+    public Optional<SourceArtifactId> sourceArtifactLineage() {
+        return Optional.ofNullable(sourceArtifactId);
     }
 }

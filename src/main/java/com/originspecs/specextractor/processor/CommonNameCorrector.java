@@ -83,7 +83,7 @@ public class CommonNameCorrector {
 
         Map<String, String> newFields = new LinkedHashMap<>(record.fields());
         newFields.put(Constants.COMMON_NAME_HEADER, corrected);
-        return new SpecRecord(newFields);
+        return new SpecRecord(newFields, record.sourceArtifactId());
     }
 
     private String correctCommonName(String value) {

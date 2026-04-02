@@ -18,6 +18,7 @@ import java.util.List;
 public class JsonWriter implements SpecRecordWriter {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .addMixIn(SpecRecord.class, SpecRecordMixin.class)
             .enable(SerializationFeature.INDENT_OUTPUT);
 
     /**

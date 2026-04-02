@@ -1,45 +1,46 @@
 package com.originspecs.specextractor.config;
 
+import com.originspecs.specextractor.model.SourceArtifactId;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for {@link Config} argument parsing, {@link OutputNamer} path derivation,
- * and {@link CliParser} exception behaviour.
- *
- * Note: {@code Config.validate()} checks the input file exists on disk, so
- * we test only {@code Config.fromArgs()} and {@code OutputNamer} here.
+ * Unit tests for {@link ConfigParser}, {@link Config}, {@link OutputNamer}, and {@link CliParser}.
  */
 class ConfigTest {
 
     private static final String VALID_INPUT = "input.xls";
-
-    // --- Config.fromArgs happy path ---
+    private static final UUID SAMPLE_ARTIFACT_ID = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
 
     @Test
-    void fromArgs_validArgument_createsConfigWithCorrectInputFile() {
-        Config config = Config.fromArgs(new String[]{VALID_INPUT});
+    void parse_validArgument_createsConfigWithCorrectInputFile() {
+        Config config = ConfigParser.parse(new String[]{VALID_INPUT});
 
         assertThat(config.inputFile().toString()).isEqualTo(VALID_INPUT);
+        assertThat(config.sourceArtifactId()).isNull();
+        assertThat(config.sourceArtifactLineage()).isEmpty();
     }
 
     @Test
-    void fromArgs_outputFileIsInExpectedDirectory() {
-        Config config = Config.fromArgs(new String[]{VALID_INPUT});
+    void parse_outputFileIsInExpectedDirectory() {
+        Config config = ConfigParser.parse(new String[]{VALID_INPUT});
 
         assertThat(config.outputFile().toString())
                 .startsWith("src/main/resources/local-data/output/");
     }
 
     @Test
-    void fromArgs_outputFilenameContainsInputBaseName() {
-        Config config = Config.fromArgs(new String[]{"pre_processed_file.xls"});
+    void parse_outputFilenameContainsInputBaseName() {
+        Config config = ConfigParser.parse(new String[]{"pre_processed_file.xls"});
 
         assertThat(config.outputFile().getFileName().toString())
                 .contains("pre_processed_file")
@@ -47,25 +48,76 @@ class ConfigTest {
     }
 
     @Test
-    void fromArgs_outputFileHasJsonExtension() {
-        Config config = Config.fromArgs(new String[]{VALID_INPUT});
+    void parse_outputFileHasJsonExtension() {
+        Config config = ConfigParser.parse(new String[]{VALID_INPUT});
 
         assertThat(config.outputFile().getFileName().toString()).endsWith(".json");
     }
 
-    // --- Config.fromArgs wrong argument count ---
+    @Test
+    void parse_sourceArtifactFlagBeforeFile_setsId() {
+        String id = SAMPLE_ARTIFACT_ID.toString();
+        Config config = ConfigParser.parse(new String[]{Constants.CLI_SOURCE_ARTIFACT_ID_FLAG, id, VALID_INPUT});
+
+        assertThat(config.sourceArtifactLineage()).contains(SourceArtifactId.parse(id));
+        assertThat(config.inputFile().toString()).isEqualTo(VALID_INPUT);
+    }
+
+    @Test
+    void parse_sourceArtifactFlagAfterFile_setsId() {
+        String id = SAMPLE_ARTIFACT_ID.toString();
+        Config config = ConfigParser.parse(new String[]{VALID_INPUT, Constants.CLI_SOURCE_ARTIFACT_ID_FLAG, id});
+
+        assertThat(config.sourceArtifactLineage()).contains(SourceArtifactId.parse(id));
+        assertThat(config.inputFile().toString()).isEqualTo(VALID_INPUT);
+    }
+
+    @Test
+    void parse_duplicateSourceArtifactFlag_throws() {
+        String id = SAMPLE_ARTIFACT_ID.toString();
+        assertThatThrownBy(() -> ConfigParser.parse(new String[]{
+                Constants.CLI_SOURCE_ARTIFACT_ID_FLAG, id,
+                Constants.CLI_SOURCE_ARTIFACT_ID_FLAG, id,
+                VALID_INPUT
+        }))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Duplicate");
+    }
+
+    @Test
+    void parse_invalidUuid_throws() {
+        assertThatThrownBy(() -> ConfigParser.parse(new String[]{
+                Constants.CLI_SOURCE_ARTIFACT_ID_FLAG, "not-uuid", VALID_INPUT
+        }))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void parse_flagWithoutValue_throws() {
+        assertThatThrownBy(() -> ConfigParser.parse(new String[]{Constants.CLI_SOURCE_ARTIFACT_ID_FLAG}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Missing value");
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {0, 2, 3})
-    void fromArgs_wrongArgumentCount_throwsIllegalArgumentException(int argCount) {
+    void parse_wrongPositionalCount_throwsIllegalArgumentException(int argCount) {
         String[] args = new String[argCount];
         for (int i = 0; i < argCount; i++) {
-            args[i] = "arg" + i;
+            args[i] = "arg" + i + (i == 0 && argCount > 0 ? ".xls" : "");
         }
 
-        assertThatThrownBy(() -> Config.fromArgs(args))
+        assertThatThrownBy(() -> ConfigParser.parse(args))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("1 argument required");
+                .hasMessageContaining("Exactly one input file");
+    }
+
+    @Test
+    void parse_onlySourceArtifactFlagAndUuid_throwsBecauseNoInputFile() {
+        String id = SAMPLE_ARTIFACT_ID.toString();
+        assertThatThrownBy(() -> ConfigParser.parse(new String[]{Constants.CLI_SOURCE_ARTIFACT_ID_FLAG, id}))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Exactly one input file");
     }
 
     // --- OutputNamer ---
@@ -124,5 +176,17 @@ class ConfigTest {
     void cliParser_invalidArgs_throwsCliException() {
         assertThatThrownBy(() -> CliParser.parseOrExit(new String[]{}))
                 .isInstanceOf(CliException.class);
+    }
+
+    @Test
+    void cliParser_acceptsSourceArtifactId(@TempDir Path temp) throws Exception {
+        Path input = temp.resolve("in.xls");
+        Files.createFile(input);
+        Config config = CliParser.parseOrExit(new String[]{
+                Constants.CLI_SOURCE_ARTIFACT_ID_FLAG, SAMPLE_ARTIFACT_ID.toString(), input.toString()
+        });
+
+        assertThat(config.inputFile()).isEqualTo(input);
+        assertThat(config.sourceArtifactLineage()).contains(SourceArtifactId.parse(SAMPLE_ARTIFACT_ID.toString()));
     }
 }

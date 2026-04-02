@@ -1,10 +1,11 @@
 package com.originspecs.specextractor.model;
 
-import com.fasterxml.jackson.annotation.JsonValue;
+import com.originspecs.specextractor.config.Constants;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -12,13 +13,26 @@ import java.util.Optional;
  * Keys are column header names; values are the corresponding cell values.
  *
  * <p>Insertion order is preserved so that JSON output columns appear in the
- * same order as the spreadsheet headers. {@code @JsonValue} instructs Jackson
- * to serialize the record directly as its fields map rather than as a wrapper object.
+ * same order as the spreadsheet headers. Jackson shape is defined via {@code SpecRecordMixin}.
+ *
+ * <p>Avoid using {@link Constants#SOURCE_ARTIFACT_ID_JSON_KEY} as a column header — it is reserved for lineage JSON.
  */
-public record SpecRecord(Map<String, String> fields) {
+public record SpecRecord(Map<String, String> fields, String sourceArtifactId) {
 
+    /** Row with no ministry workbook lineage (Provenance field omitted from JSON). */
     public SpecRecord(Map<String, String> fields) {
-        this.fields = Collections.unmodifiableMap(new LinkedHashMap<>(fields));
+        this(fields, null);
+    }
+
+    public SpecRecord {
+        Objects.requireNonNull(fields, "fields");
+        fields = Collections.unmodifiableMap(new LinkedHashMap<>(fields));
+        sourceArtifactId = sourceArtifactId == null || sourceArtifactId.isBlank()
+                ? null
+                : sourceArtifactId.trim();
+        if (sourceArtifactId != null) {
+            SourceArtifactId.parse(sourceArtifactId);
+        }
     }
 
     /** Returns the value for the given header, or an empty string if absent. */
@@ -30,10 +44,5 @@ public record SpecRecord(Map<String, String> fields) {
     public Optional<String> getOptional(String header) {
         String value = fields.get(header);
         return value == null || value.isBlank() ? Optional.empty() : Optional.of(value);
-    }
-
-    @JsonValue
-    public Map<String, String> fields() {
-        return fields;
     }
 }
