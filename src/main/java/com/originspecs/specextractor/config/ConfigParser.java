@@ -29,7 +29,8 @@ public final class ConfigParser {
                 if (i + 1 >= args.length) {
                     throw new IllegalArgumentException("Missing value after " + Constants.CLI_SOURCE_ARTIFACT_ID_FLAG);
                 }
-                sourceArtifactId = SourceArtifactId.parse(args[++i]);
+                i++;
+                sourceArtifactId = SourceArtifactId.parse(args[i]);
                 continue;
             }
             positionals.add(args[i]);
