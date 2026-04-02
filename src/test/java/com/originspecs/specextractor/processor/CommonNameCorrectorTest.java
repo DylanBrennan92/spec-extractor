@@ -68,6 +68,21 @@ class CommonNameCorrectorTest {
         assertThat(result.get(0).get(Constants.COMMON_NAME_HEADER)).isEmpty();
     }
 
+    @Test
+    void shouldPreserveSourceArtifactId_whenCommonNameCorrected() {
+        String id = "550e8400-e29b-41d4-a716-446655440000";
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("Car Name", "Brand");
+        fields.put(Constants.COMMON_NAME_HEADER, "I'm Ease");
+        fields.put("Engine", "KF");
+        SpecRecord record = new SpecRecord(fields, id);
+
+        List<SpecRecord> result = corrector.correct(List.of(record));
+
+        assertThat(result.get(0).sourceArtifactId()).isEqualTo(id);
+        assertThat(result.get(0).get(Constants.COMMON_NAME_HEADER)).isEqualTo("Mira e:S");
+    }
+
     private void assertCorrected(String input, String expected) {
         SpecRecord record = recordWithCommonName(input);
         List<SpecRecord> result = corrector.correct(List.of(record));

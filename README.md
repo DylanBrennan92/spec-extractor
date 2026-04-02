@@ -61,22 +61,79 @@ cd spec-extractor
 mvn clean package
 ```
 
-## Usage
+The runnable fat JAR is `target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar`.
+
+## How to run (step by step)
+
+1. **Use Java 21+** and ensure the JAR exists (see **Building from source**).
+
+2. **Set your DeepL API key** in the shell where you invoke Java. The tool reads `DEEPL_API_KEY` at startup and fails fast if it is missing or blank.
+
+   ```bash
+   export DEEPL_API_KEY=your-deepl-api-key
+   ```
+
+3. **Point at a cleaned workbook.** The input must be an `.xls` file produced by DataPrep (single English header row, sparse columns removed). Paths can be relative to the project root or absolute.
+
+4. **Run the JAR** from the **spec-extractor project root** (or use absolute paths). Optional flag: `--source-artifact-id` plus a **UUID** string — use **the same UUID** you passed to DataPrep’s `--source-artifact-id` when you prepared that file, so every JSON row gets a `sourceArtifactId` field and lines up with the ministry original stored under DataPrep’s `local-data/artifacts/<uuid>.<ext>`.
+
+   **Without lineage** (no extra field in JSON):
+
+   ```bash
+   java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
+     src/main/resources/local-data/input/your_cleaned_file.xls
+   ```
+
+   **With lineage** (UUID must match the DataPrep run for this workbook):
+
+   ```bash
+   java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
+     --source-artifact-id 550e8400-e29b-41d4-a716-446655440000 \
+     src/main/resources/local-data/input/your_cleaned_file.xls
+   ```
+
+   The flag and the file path can appear in either order, as long as there is **exactly one** positional path and **at most one** `--source-artifact-id` (with its value immediately after the flag).
+
+5. **Collect output.** JSON is written under `src/main/resources/local-data/output/` with an automatic name: `{iso_timestamp}_{original_base_name}.json` (for example `20260225T214530_pre_processed_file.json`).
+
+### End-to-end with DataPrep and `sourceArtifactId`
+
+Use this when you want traceability back to the **byte-identical** ministry file DataPrep archived.
+
+1. Pick or generate a UUID (for example with `uuidgen` on Linux/macOS).
+2. In the **DataPrep** repo, put **exactly one** `.xls` in `src/main/resources/local-data/input/`, then run DataPrep with that UUID (see the DataPrep README). DataPrep copies the original to `local-data/artifacts/<uuid>.xls` (or the original extension) and writes the cleaned `.xls` to `local-data/output/`.
+3. Copy or reference the **cleaned** output `.xls` for spec-extractor (same machine or path your JSON run can see).
+4. Run spec-extractor with **the same UUID**:
+
+   ```bash
+   export DEEPL_API_KEY=your-deepl-api-key
+   java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
+     --source-artifact-id <same-uuid-as-dataprep> \
+     /path/to/cleaned_output.xls
+   ```
+
+Every object in the JSON array will include `"sourceArtifactId": "<uuid>"`, identical on every row for that run.
+
+## Usage (quick reference)
 
 ```bash
-java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar <inputFile.xls>
+java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
+  [--source-artifact-id <uuid>] \
+  <inputFile.xls>
 ```
 
-### CLI Arguments
+### CLI arguments
 
-| Argument        | Required | Description                                           | Example                                                        |
-|-----------------|----------|-------------------------------------------------------|----------------------------------------------------------------|
-| `inputFile.xls` | Yes      | Path to the pre-processed .xls file (DataPrep output) | `src/main/resources/local-data/input/pre_processed_file.xls`  |
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `<inputFile.xls>` | Yes | Path to the pre-processed `.xls` (DataPrep output). Exactly one positional argument. |
+| `--source-artifact-id <uuid>` | No | At most once. Must be a valid UUID string. When set, each JSON row includes `sourceArtifactId` matching the DataPrep lineage for the ministry original under `local-data/artifacts/<uuid>.<ext>`. Omit this flag if you do not need lineage in the export. |
 
-The output file is generated automatically — the filename is `{iso_timestamp}_{original_base_name}.json`
-(e.g. `20260225T214530_pre_processed_file.json`), written to `src/main/resources/local-data/output/`.
+The output file is generated automatically — the filename is `{iso_timestamp}_{original_base_name}.json`, written to `src/main/resources/local-data/output/`.
 
-## Example
+## Examples
+
+**Basic run**
 
 ```bash
 export DEEPL_API_KEY=your-deepl-api-key
@@ -85,7 +142,17 @@ java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
   src/main/resources/local-data/input/5.1.Gzyouyou_WLTC_output.xls
 ```
 
-With DEBUG logging:
+**Same input with lineage** (`sourceArtifactId` on every row)
+
+```bash
+export DEEPL_API_KEY=your-deepl-api-key
+
+java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
+  --source-artifact-id 550e8400-e29b-41d4-a716-446655440000 \
+  src/main/resources/local-data/input/5.1.Gzyouyou_WLTC_output.xls
+```
+
+**DEBUG logging**
 
 ```bash
 java -DLOG_LEVEL=DEBUG \
@@ -98,6 +165,10 @@ java -DLOG_LEVEL=DEBUG \
 Each row in the input spreadsheet becomes a JSON object. Keys are taken from the English header
 row produced by DataPrep; values are the DeepL-translated cell contents.
 
+If you passed `--source-artifact-id`, every object also contains `sourceArtifactId` (same string on all rows). Do not use the literal column header `sourceArtifactId` in your spreadsheet — that name is reserved for this JSON field.
+
+**Without** `--source-artifact-id`:
+
 ```json
 [
   {
@@ -106,6 +177,21 @@ row produced by DataPrep; values are the DeepL-translated cell contents.
     "Model Type": "6AA-E13",
     "Engine Displacement (L)": "1.198",
     "Vehicle Weight (kg)": "1190"
+  }
+]
+```
+
+**With** `--source-artifact-id 550e8400-e29b-41d4-a716-446655440000`:
+
+```json
+[
+  {
+    "Car Name": "Nissan",
+    "Common Name": "Note",
+    "Model Type": "6AA-E13",
+    "Engine Displacement (L)": "1.198",
+    "Vehicle Weight (kg)": "1190",
+    "sourceArtifactId": "550e8400-e29b-41d4-a716-446655440000"
   }
 ]
 ```

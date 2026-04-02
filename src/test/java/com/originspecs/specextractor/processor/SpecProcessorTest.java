@@ -2,11 +2,13 @@ package com.originspecs.specextractor.processor;
 
 import com.originspecs.specextractor.model.RowData;
 import com.originspecs.specextractor.model.SheetData;
+import com.originspecs.specextractor.model.SourceArtifactId;
 import com.originspecs.specextractor.model.SpecRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,7 +31,7 @@ class SpecProcessorTest {
                 )
         );
 
-        List<SpecRecord> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet), null);
 
         assertThat(records).hasSize(2);
         assertThat(records.get(0).fields())
@@ -53,7 +55,7 @@ class SpecProcessorTest {
                 )
         );
 
-        List<SpecRecord> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet), null);
 
         assertThat(records).hasSize(2);
         assertThat(records.get(0).get("Car Name")).isEqualTo("Nissan");
@@ -67,7 +69,7 @@ class SpecProcessorTest {
                 List.of(List.of("Nissan", "ignored", "6AA-E13"))
         );
 
-        List<SpecRecord> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet), null);
 
         assertThat(records).hasSize(1);
         assertThat(records.get(0).fields()).doesNotContainKey("");
@@ -87,7 +89,7 @@ class SpecProcessorTest {
                 List.of(List.of("Toyota", "5BA-MXPK11"))
         );
 
-        List<SpecRecord> records = processor.process(List.of(sheet1, sheet2));
+        List<SpecRecord> records = processor.process(List.of(sheet1, sheet2), null);
 
         assertThat(records).hasSize(2);
         assertThat(records.get(0).get("Car Name")).isEqualTo("Nissan");
@@ -98,7 +100,7 @@ class SpecProcessorTest {
     void process_emptyHeaderList_returnsNoRecords() {
         SheetData sheet = new SheetData("Empty", 0, List.of(), List.of(new RowData(List.of("some", "data"))));
 
-        List<SpecRecord> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet), null);
 
         assertThat(records).isEmpty();
     }
@@ -110,7 +112,7 @@ class SpecProcessorTest {
                 List.of(List.of("Nissan"))
         );
 
-        List<SpecRecord> records = processor.process(List.of(sheet));
+        List<SpecRecord> records = processor.process(List.of(sheet), null);
 
         assertThat(records).hasSize(1);
         assertThat(records.get(0).fields())
@@ -120,18 +122,31 @@ class SpecProcessorTest {
     }
 
     @Test
+    void process_setsSourceArtifactIdOnEachRecord_whenProvided() {
+        SourceArtifactId id = SourceArtifactId.parse(UUID.fromString("550e8400-e29b-41d4-a716-446655440000").toString());
+        SheetData sheet = buildSheet(
+                List.of("Car Name"),
+                List.of(List.of("Nissan"), List.of("Toyota"))
+        );
+
+        List<SpecRecord> records = processor.process(List.of(sheet), id);
+
+        assertThat(records).hasSize(2);
+        assertThat(records.get(0).sourceArtifactId()).isEqualTo(id.value());
+        assertThat(records.get(1).sourceArtifactId()).isEqualTo(id.value());
+    }
+
+    @Test
     void specRecord_get_returnsEmptyStringForAbsentHeader() {
         SheetData sheet = buildSheet(
                 List.of("Car Name"),
                 List.of(List.of("Nissan"))
         );
 
-        SpecRecord record = processor.process(List.of(sheet)).get(0);
+        SpecRecord record = processor.process(List.of(sheet), null).get(0);
 
         assertThat(record.get("NonExistent")).isEmpty();
     }
-
-    // --- Helper ---
 
     private SheetData buildSheet(List<String> headers, List<List<String>> rowValues) {
         List<RowData> rows = rowValues.stream()
