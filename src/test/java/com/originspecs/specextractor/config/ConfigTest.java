@@ -189,4 +189,30 @@ class ConfigTest {
         assertThat(config.inputFile()).isEqualTo(input);
         assertThat(config.sourceArtifactLineage()).contains(SourceArtifactId.parse(SAMPLE_ARTIFACT_ID.toString()));
     }
+
+    @Test
+    void cliParser_loadsLineageFromDataprepSidecar_whenFlagOmitted(@TempDir Path temp) throws Exception {
+        Path input = temp.resolve("cleaned.xls");
+        Files.createFile(input);
+        Files.writeString(input.resolveSibling("cleaned.xls.source-artifact-id"), SAMPLE_ARTIFACT_ID + "\n");
+
+        Config config = CliParser.parseOrExit(new String[]{input.toString()});
+
+        assertThat(config.sourceArtifactLineage()).contains(SourceArtifactId.parse(SAMPLE_ARTIFACT_ID.toString()));
+    }
+
+    @Test
+    void cliParser_throwsWhenCliSourceArtifactIdDoesNotMatchSidecar(@TempDir Path temp) throws Exception {
+        Path input = temp.resolve("cleaned.xls");
+        Files.createFile(input);
+        Files.writeString(input.resolveSibling("cleaned.xls.source-artifact-id"), SAMPLE_ARTIFACT_ID + "\n");
+
+        assertThatThrownBy(() -> CliParser.parseOrExit(new String[]{
+                Constants.CLI_SOURCE_ARTIFACT_ID_FLAG,
+                "6ba7b810-9dad-11d1-80b4-00c04fd430c8",
+                input.toString()
+        }))
+                .isInstanceOf(CliException.class)
+                .hasMessageContaining("does not match");
+    }
 }
