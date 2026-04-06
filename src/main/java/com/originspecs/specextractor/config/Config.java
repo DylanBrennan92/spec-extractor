@@ -8,9 +8,10 @@ import java.util.Optional;
 
 /**
  * Immutable paths and options for one extraction run.
- * Built via {@link ConfigParser#parse(String[])} and checked with {@link ConfigValidator#validate(Config)}.
+ * Built via {@link ConfigParser#parse(String[])}, validated with {@link ConfigValidator#validate(Config)},
+ * then optionally enriched with {@link DataPrepLineageResolver#applySidecarLineage(Config)}.
  *
- * @param sourceArtifactId {@code null} when {@code --source-artifact-id} was not passed.
+ * @param sourceArtifactId {@code null} when neither {@code --source-artifact-id} nor a DataPrep sidecar supplied lineage.
  */
 public record Config(
         Path inputFile,

@@ -26,12 +26,15 @@ public final class Constants {
     public static final String COMMON_NAME_HEADER = "Common Name";
 
     /**
-     * JSON property for the ministry workbook lineage id (same UUID minted for DataPrep
-     * {@code --source-artifact-id}; original file is {@code local-data/artifacts/{id}.{ext}}).
+     * JSON property for the ministry workbook lineage id (UUID from DataPrep; original under
+     * {@code local-data/artifacts/{id}.{ext}}).
      */
     public static final String SOURCE_ARTIFACT_ID_JSON_KEY = "sourceArtifactId";
 
-    /** CLI flag; must match DataPrep for the same run pipeline. */
+    /** Suffix DataPrep appends to the cleaned workbook file name for the one-line UUID sidecar. */
+    public static final String DATAPREP_LINEAGE_SIDECAR_SUFFIX = ".source-artifact-id";
+
+    /** Optional CLI override for lineage when no sidecar is present or to assert agreement with the sidecar. */
     public static final String CLI_SOURCE_ARTIFACT_ID_FLAG = "--source-artifact-id";
 
     private Constants() {}

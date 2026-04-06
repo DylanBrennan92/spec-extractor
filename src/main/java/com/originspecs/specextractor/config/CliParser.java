@@ -8,10 +8,10 @@ public final class CliParser {
     private static final String USAGE = String.join(System.lineSeparator(),
             "Usage: java -jar spec-extractor.jar [--source-artifact-id <uuid>] <inputFile.xls>",
             "Output is written automatically to src/main/resources/local-data/output/ as {timestamp}_{input_base_name}.json.",
-            "--source-artifact-id: Optional, at most once. When set, every JSON row includes \""
-                    + Constants.SOURCE_ARTIFACT_ID_JSON_KEY + "\" matching the DataPrep run",
-            "(ministry original under local-data/artifacts/<uuid>.<ext>).",
-            "Example: java -jar target/spec-extractor.jar src/main/resources/local-data/input/pre_processed_file.xls",
+            "Lineage: If <inputFile>.source-artifact-id exists (DataPrep output), the first line that parses as a UUID is used",
+            "unless you pass --source-artifact-id (then it must match the sidecar when both are present).",
+            "Original ministry workbook: local-data/artifacts/<uuid>.<ext> (DataPrep).",
+            "Example: java -jar target/spec-extractor.jar src/main/resources/local-data/input/cleaned.xls",
             "Example: java -jar target/spec-extractor.jar --source-artifact-id 550e8400-e29b-41d4-a716-446655440000 path/to/file.xls");
 
     private CliParser() {}
@@ -27,11 +27,11 @@ public final class CliParser {
         try {
             Config config = ConfigParser.parse(args);
             ConfigValidator.validate(config);
-            return config;
+            return DataPrepLineageResolver.applySidecarLineage(config);
         } catch (IllegalArgumentException | IllegalStateException e) {
             log.error("Invalid arguments: {}", e.getMessage());
             log.error(USAGE);
-            throw new CliException(e.getMessage());
+            throw new CliException(e.getMessage(), e);
         }
     }
 }

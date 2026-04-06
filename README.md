@@ -75,21 +75,25 @@ The runnable fat JAR is `target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencie
 
 3. **Point at a cleaned workbook.** The input must be an `.xls` file produced by DataPrep (single English header row, sparse columns removed). Paths can be relative to the project root or absolute.
 
-4. **Run the JAR** from the **spec-extractor project root** (or use absolute paths). Optional flag: `--source-artifact-id` plus a **UUID** string — use **the same UUID** you passed to DataPrep’s `--source-artifact-id` when you prepared that file, so every JSON row gets a `sourceArtifactId` field and lines up with the ministry original stored under DataPrep’s `local-data/artifacts/<uuid>.<ext>`.
+4. **Run the JAR** from the **spec-extractor project root** (or use absolute paths).
 
-   **Without lineage** (no extra field in JSON):
+   **Lineage (`sourceArtifactId` in JSON):** If DataPrep’s sidecar is next to your input — same directory, named `<inputBaseName>.source-artifact-id` (for example `cleaned.xls.source-artifact-id`) — spec-extractor uses the **first line in that file that parses as a UUID** (blank lines and non-UUID lines such as comments are skipped) and stamps every JSON row. You do **not** need `--source-artifact-id` in that case.
+
+   Optionally pass `--source-artifact-id <uuid>` to **override** when there is no sidecar, or to **assert** the same id when a sidecar exists (a mismatch fails fast).
+
+   **Typical run** (sidecar present — same folder as the cleaned `.xls` after DataPrep):
 
    ```bash
    java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
-     src/main/resources/local-data/input/your_cleaned_file.xls
+     /path/to/cleaned.xls
    ```
 
-   **With lineage** (UUID must match the DataPrep run for this workbook):
+   **Explicit UUID** (optional; must match sidecar if both are present):
 
    ```bash
    java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
      --source-artifact-id 550e8400-e29b-41d4-a716-446655440000 \
-     src/main/resources/local-data/input/your_cleaned_file.xls
+     /path/to/cleaned.xls
    ```
 
    The flag and the file path can appear in either order, as long as there is **exactly one** positional path and **at most one** `--source-artifact-id` (with its value immediately after the flag).
@@ -100,19 +104,21 @@ The runnable fat JAR is `target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencie
 
 Use this when you want traceability back to the **byte-identical** ministry file DataPrep archived.
 
-1. Pick or generate a UUID (for example with `uuidgen` on Linux/macOS).
-2. In the **DataPrep** repo, put **exactly one** `.xls` in `src/main/resources/local-data/input/`, then run DataPrep with that UUID (see the DataPrep README). DataPrep copies the original to `local-data/artifacts/<uuid>.xls` (or the original extension) and writes the cleaned `.xls` to `local-data/output/`.
-3. Copy or reference the **cleaned** output `.xls` for spec-extractor (same machine or path your JSON run can see).
-4. Run spec-extractor with **the same UUID**:
+1. In **DataPrep**, run the pipeline on your ministry `.xls` (see the DataPrep README). For each workbook it writes:
+   - `local-data/artifacts/<generated-uuid>.<ext>` — copy of the original file  
+   - `local-data/output/<name>.xls` — cleaned workbook  
+   - `local-data/output/<name>.xls.source-artifact-id` — one-line UUID for that run  
+2. Point spec-extractor at the **cleaned** `.xls`, and keep the `.source-artifact-id` file **beside it** (same directory). Then a normal run picks up lineage automatically:
 
    ```bash
    export DEEPL_API_KEY=your-deepl-api-key
    java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
-     --source-artifact-id <same-uuid-as-dataprep> \
      /path/to/cleaned_output.xls
    ```
 
-Every object in the JSON array will include `"sourceArtifactId": "<uuid>"`, identical on every row for that run.
+If you copy only the `.xls` and not the sidecar, JSON will omit `sourceArtifactId` unless you pass `--source-artifact-id` with the correct UUID from the sidecar or logs.
+
+Every object in the JSON array then includes `"sourceArtifactId": "<uuid>"`, identical on every row for that run.
 
 ## Usage (quick reference)
 
@@ -127,7 +133,7 @@ java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `<inputFile.xls>` | Yes | Path to the pre-processed `.xls` (DataPrep output). Exactly one positional argument. |
-| `--source-artifact-id <uuid>` | No | At most once. Must be a valid UUID string. When set, each JSON row includes `sourceArtifactId` matching the DataPrep lineage for the ministry original under `local-data/artifacts/<uuid>.<ext>`. Omit this flag if you do not need lineage in the export. |
+| `--source-artifact-id <uuid>` | No | At most once. Optional override or cross-check: each JSON row gets `sourceArtifactId` when this flag is set **or** when `<inputFile>.source-artifact-id` exists (DataPrep). If both are present, they must match. |
 
 The output file is generated automatically — the filename is `{iso_timestamp}_{original_base_name}.json`, written to `src/main/resources/local-data/output/`.
 
@@ -142,7 +148,16 @@ java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
   src/main/resources/local-data/input/5.1.Gzyouyou_WLTC_output.xls
 ```
 
-**Same input with lineage** (`sourceArtifactId` on every row)
+**Lineage via DataPrep sidecar** (keep `5.1.Gzyouyou_WLTC_output.xls.source-artifact-id` next to the `.xls`)
+
+```bash
+export DEEPL_API_KEY=your-deepl-api-key
+
+java -jar target/spec-extractor-1.0-SNAPSHOT-jar-with-dependencies.jar \
+  src/main/resources/local-data/input/5.1.Gzyouyou_WLTC_output.xls
+```
+
+**Same with explicit UUID** (optional; must agree with sidecar if both exist)
 
 ```bash
 export DEEPL_API_KEY=your-deepl-api-key
@@ -165,9 +180,9 @@ java -DLOG_LEVEL=DEBUG \
 Each row in the input spreadsheet becomes a JSON object. Keys are taken from the English header
 row produced by DataPrep; values are the DeepL-translated cell contents.
 
-If you passed `--source-artifact-id`, every object also contains `sourceArtifactId` (same string on all rows). Do not use the literal column header `sourceArtifactId` in your spreadsheet — that name is reserved for this JSON field.
+If lineage was supplied (DataPrep sidecar and/or `--source-artifact-id`), every object also contains `sourceArtifactId` (same string on all rows). Do not use the literal column header `sourceArtifactId` in your spreadsheet — that name is reserved for this JSON field.
 
-**Without** `--source-artifact-id`:
+**Without** lineage (no sidecar and no `--source-artifact-id`):
 
 ```json
 [
@@ -181,7 +196,7 @@ If you passed `--source-artifact-id`, every object also contains `sourceArtifact
 ]
 ```
 
-**With** `--source-artifact-id 550e8400-e29b-41d4-a716-446655440000`:
+**With** lineage (sidecar and/or `--source-artifact-id 550e8400-e29b-41d4-a716-446655440000`):
 
 ```json
 [
