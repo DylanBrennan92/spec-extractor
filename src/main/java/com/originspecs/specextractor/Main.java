@@ -23,8 +23,10 @@ public class Main {
     public static void main(String[] args) {
         try {
             Config config = CliParser.parseOrExit(args);
-            Orchestrator orchestrator = createOrchestrator(config);
-            orchestrator.execute(config);
+            try (HttpClient httpClient = HttpClient.newHttpClient()) {
+                Orchestrator orchestrator = createOrchestrator(config, httpClient);
+                orchestrator.execute(config);
+            }
         } catch (CliException e) {
             System.exit(1);
         } catch (Exception e) {
@@ -33,9 +35,8 @@ public class Main {
         }
     }
 
-    private static Orchestrator createOrchestrator(Config config) {
+    private static Orchestrator createOrchestrator(Config config, HttpClient httpClient) {
         WorkbookReader reader = new WorkbookReaderImpl();
-        HttpClient httpClient = HttpClient.newHttpClient();
         TranslationService translationService = new TranslationService(
                 new DeepLClient(config.deeplApiKey(), httpClient));
         var processor = new SpecProcessor();
