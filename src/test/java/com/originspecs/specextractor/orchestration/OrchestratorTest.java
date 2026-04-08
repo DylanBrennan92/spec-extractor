@@ -4,8 +4,8 @@ import com.originspecs.specextractor.config.Config;
 import com.originspecs.specextractor.model.SheetData;
 import com.originspecs.specextractor.model.SourceArtifactId;
 import com.originspecs.specextractor.model.SpecRecord;
-import com.originspecs.specextractor.processor.CommonNameCorrector;
 import com.originspecs.specextractor.processor.SheetProcessor;
+import com.originspecs.specextractor.processor.SpecRecordPostProcessor;
 import com.originspecs.specextractor.reader.WorkbookReader;
 import com.originspecs.specextractor.service.TranslationResult;
 import com.originspecs.specextractor.service.TranslationService;
@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -53,7 +54,7 @@ class OrchestratorTest {
     private SheetProcessor processor;
 
     @Mock
-    private CommonNameCorrector commonNameCorrector;
+    private SpecRecordPostProcessor recordPostProcessor;
 
     @Mock
     private SpecRecordWriter writer;
@@ -63,9 +64,10 @@ class OrchestratorTest {
 
     @BeforeEach
     void setUp() {
-        orchestrator = new Orchestrator(reader, translationService, processor, commonNameCorrector, writer);
+        orchestrator = new Orchestrator(
+                reader, translationService, processor, List.of(recordPostProcessor), writer);
         config = new Config(INPUT_PATH, OUTPUT_PATH, API_KEY, null);
-        lenient().when(commonNameCorrector.correct(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(recordPostProcessor.process(anyList())).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
@@ -89,7 +91,7 @@ class OrchestratorTest {
         verify(reader).read(INPUT_PATH);
         verify(translationService).translate(sheets);
         verify(processor).process(eq(translatedSheets), isNull());
-        verify(commonNameCorrector).correct(records);
+        verify(recordPostProcessor).process(records);
         verify(writer).write(anyList(), eq(OUTPUT_PATH));
     }
 
@@ -147,5 +149,30 @@ class OrchestratorTest {
         assertThatThrownBy(() -> orchestrator.execute(config))
                 .isInstanceOf(IOException.class)
                 .hasMessage("write failed");
+    }
+
+    @Test
+    void execute_appliesRecordPostProcessorsInOrder() throws IOException {
+        SpecRecordPostProcessor first = mock(SpecRecordPostProcessor.class);
+        SpecRecordPostProcessor second = mock(SpecRecordPostProcessor.class);
+        Orchestrator multi = new Orchestrator(
+                reader, translationService, processor, List.of(first, second), writer);
+
+        List<SheetData> sheets = List.of(SheetData.empty("S", 0));
+        List<SpecRecord> afterProcess = List.of(new SpecRecord(java.util.Map.of("a", "1")));
+        List<SpecRecord> afterFirst = List.of(new SpecRecord(java.util.Map.of("b", "2")));
+        List<SpecRecord> afterSecond = List.of(new SpecRecord(java.util.Map.of("c", "3")));
+
+        when(reader.read(INPUT_PATH)).thenReturn(sheets);
+        when(translationService.translate(sheets)).thenReturn(new TranslationResult(sheets, 0));
+        when(processor.process(sheets, null)).thenReturn(afterProcess);
+        when(first.process(afterProcess)).thenReturn(afterFirst);
+        when(second.process(afterFirst)).thenReturn(afterSecond);
+
+        multi.execute(config);
+
+        verify(first).process(afterProcess);
+        verify(second).process(afterFirst);
+        verify(writer).write(afterSecond, OUTPUT_PATH);
     }
 }

@@ -32,6 +32,7 @@ English column header names.
 Read (WorkbookReaderImpl)
   → Translate (TranslationService + DeepLClient)
   → Process (SpecProcessor)
+  → Post-process (ordered `SpecRecordPostProcessor` steps, e.g. CommonNameCorrector)
   → Write (JsonWriter)
 ```
 
@@ -40,6 +41,7 @@ Read (WorkbookReaderImpl)
 | Read | `WorkbookReaderImpl` | Parses the .xls workbook into `SheetData` records |
 | Translate | `TranslationService` | Batches non-blank cells (≤ 50 per request) and sends them to DeepL |
 | Process | `SpecProcessor` | Maps each translated row to a `SpecRecord` (header → value) |
+| Post-process | `SpecRecordPostProcessor` (e.g. `CommonNameCorrector`) | Ordered record transformations before JSON output |
 | Write | `JsonWriter` | Serialises the record list to a pretty-printed JSON file |
 
 ## Prerequisites

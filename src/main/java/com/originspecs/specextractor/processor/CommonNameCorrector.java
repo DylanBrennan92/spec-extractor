@@ -17,7 +17,7 @@ import java.util.Properties;
  * Corrections are loaded from {@code common-name-corrections.properties}.
  */
 @Slf4j
-public class CommonNameCorrector {
+public final class CommonNameCorrector implements SpecRecordPostProcessor {
 
     private static final String CORRECTIONS_RESOURCE = "common-name-corrections.properties";
 
@@ -64,6 +64,11 @@ public class CommonNameCorrector {
         return records.stream()
                 .map(this::correctRecord)
                 .toList();
+    }
+
+    @Override
+    public List<SpecRecord> process(List<SpecRecord> records) {
+        return correct(records);
     }
 
     private SpecRecord correctRecord(SpecRecord record) {
