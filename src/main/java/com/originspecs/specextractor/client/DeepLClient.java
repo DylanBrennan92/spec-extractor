@@ -12,7 +12,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -21,16 +21,27 @@ import java.util.Optional;
  * Throws {@link DeepLApiException} on any non-200 response.
  */
 @Slf4j
-public class DeepLClient implements TranslationClient {
+public final class DeepLClient implements TranslationClient {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final String apiKey;
     private final HttpClient httpClient;
 
+    /**
+     * @param apiKey     DeepL API key
+     * @param httpClient HTTP client used for all requests (inject for tests or custom timeouts/TLS)
+     */
+    public DeepLClient(String apiKey, HttpClient httpClient) {
+        this.apiKey = Objects.requireNonNull(apiKey, "apiKey");
+        this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
+    }
+
+    /**
+     * Convenience: uses {@link HttpClient#newHttpClient()} as the HTTP implementation.
+     */
     public DeepLClient(String apiKey) {
-        this.apiKey = apiKey;
-        this.httpClient = HttpClient.newHttpClient();
+        this(apiKey, HttpClient.newHttpClient());
     }
 
     /**

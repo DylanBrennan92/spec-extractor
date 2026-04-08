@@ -7,11 +7,15 @@ import com.originspecs.specextractor.config.Config;
 import com.originspecs.specextractor.orchestration.Orchestrator;
 import com.originspecs.specextractor.processor.CommonNameCorrector;
 import com.originspecs.specextractor.processor.SpecProcessor;
+import com.originspecs.specextractor.processor.SpecRecordPostProcessor;
 import com.originspecs.specextractor.reader.WorkbookReader;
 import com.originspecs.specextractor.reader.WorkbookReaderImpl;
 import com.originspecs.specextractor.service.TranslationService;
 import com.originspecs.specextractor.writer.JsonWriter;
 import lombok.extern.slf4j.Slf4j;
+
+import java.net.http.HttpClient;
+import java.util.List;
 
 @Slf4j
 public class Main {
@@ -19,8 +23,10 @@ public class Main {
     public static void main(String[] args) {
         try {
             Config config = CliParser.parseOrExit(args);
-            Orchestrator orchestrator = createOrchestrator(config);
-            orchestrator.execute(config);
+            try (HttpClient httpClient = HttpClient.newHttpClient()) {
+                Orchestrator orchestrator = createOrchestrator(config, httpClient);
+                orchestrator.execute(config);
+            }
         } catch (CliException e) {
             System.exit(1);
         } catch (Exception e) {
@@ -29,12 +35,13 @@ public class Main {
         }
     }
 
-    private static Orchestrator createOrchestrator(Config config) {
+    private static Orchestrator createOrchestrator(Config config, HttpClient httpClient) {
         WorkbookReader reader = new WorkbookReaderImpl();
-        TranslationService translationService = new TranslationService(new DeepLClient(config.deeplApiKey()));
+        TranslationService translationService = new TranslationService(
+                new DeepLClient(config.deeplApiKey(), httpClient));
         var processor = new SpecProcessor();
-        var commonNameCorrector = CommonNameCorrector.create();
+        List<SpecRecordPostProcessor> recordPostProcessors = List.of(CommonNameCorrector.create());
         var writer = new JsonWriter();
-        return new Orchestrator(reader, translationService, processor, commonNameCorrector, writer);
+        return new Orchestrator(reader, translationService, processor, recordPostProcessors, writer);
     }
 }
